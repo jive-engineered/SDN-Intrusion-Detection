@@ -1,0 +1,11 @@
+{
+  "protected_hosts": ["10.0.0.1"],
+  "block_idle_timeout": 30,
+  "stats_interval": 3,
+
+  "conn_flood":       {"enabled": true, "threshold": 21, "window": 1.0},
+  "port_scan":        {"enabled": true, "threshold": 6,  "window": 3.0},
+  "invalid_flags":    {"enabled": true, "threshold": 3,  "window": 10.0},
+  "concurrent_flows": {"enabled": true, "threshold": 40},
+  "packet_rate":      {"enabled": true, "threshold": 3000}
+}

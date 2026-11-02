@@ -1,0 +1,14 @@
+{
+  "protected_hosts": ["10.0.0.2"],
+  "block_idle_timeout": 30,
+  "stats_interval": 3,
+
+  "conn_flood":       {"enabled": true, "threshold": 20, "window": 3.0},
+  "port_scan":        {"enabled": true, "threshold": 8,  "window": 10.0},
+  "invalid_flags":    {"enabled": true, "threshold": 3,  "window": 10.0},
+  "concurrent_flows": {"enabled": true, "threshold": 40},
+  "packet_rate":      {"enabled": true, "threshold": 3000},
+
+  "multi_ip_spoof":   {"enabled": true, "threshold": 2,  "window": 4.0},
+  "port_flood":       {"enabled": true, "threshold": 35, "window": 3.0}
+}

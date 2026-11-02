@@ -1,0 +1,208 @@
+--- a/controller/ids_controller.py
++++ b/controller/ids_controller.py
+@@ -41,6 +41,7 @@
+         super(IDSController, self).__init__(*args, **kwargs)
+         os.makedirs(LOG_DIR, exist_ok=True)
+         self.rules_mtime = 0
++        self.rules_loaded_at = None
+         self.engine = IDSEngine()
+         self._load_rules(force=True)
+ 
+@@ -48,6 +49,7 @@
+         self.datapaths = {}
+         self._stats_buf = {}
+         self._prev_pkts = {}
++        self._prev_bytes = {}
+         self._pending_barrier = {}
+         self._block_records = {}
+         self._last_stats_ts = None
+@@ -55,6 +57,7 @@
+         with open(STATS_CSV, "a") as f:
+             if f.tell() == 0:
+                 f.write("timestamp,src_ip,active_flows,packets_per_sec,bytes_in_interval\n")
++                f.flush()
+ 
+         self.monitor_thread = hub.spawn(self._monitor)
+         self.logger.info("%sIDS controller started. Advanced Edge-Defense Active.%s", BOLD, END)
+@@ -66,6 +69,7 @@
+                 with open(RULES_FILE) as f:
+                     self.engine.update_rules(json.load(f))
+                 self.rules_mtime = mt
++                self.rules_loaded_at = time.time()
+                 self.logger.info("%s[CONFIG] IDS rules reloaded from %s%s", CYAN, RULES_FILE, END)
+         except (OSError, ValueError) as e:
+             self.logger.warning("Could not load rules: %s", e)
+@@ -75,25 +79,45 @@
+         rec.update(fields)
+         try:
+             with open(EVENT_LOG, "a") as f:
+-                f.write(json.dumps(rec) + "\n")
+-        except OSError:
+-            pass
++                f.write(json.dumps(rec, separators=(",", ":")) + "\n")
++                f.flush()
++        except OSError as e:
++            self.logger.warning("Could not append IDS event to %s: %s", EVENT_LOG, e)
+ 
+     def _write_status(self):
+         try:
+-            st = {"ts": time.time(),
+-                  "switches": sorted(self.datapaths),
+-                  "blocked": dict((ip, {"since": i["since"], "rule": i["rule"]}) for ip, i in self.engine.blocked.items()),
+-                  "stats": dict((ip, {"flows": v["flows"], "pps": round(v["pps"], 1)})
+-                                for ip, v in self.engine.stats_snapshot().items()),
+-                  "block_idle_timeout": self.engine.rules["block_idle_timeout"],
+-                  "stats_interval": self.engine.rules["stats_interval"]}
++            blocked = {}
++            for ip, item in self.engine.blocked.items():
++                rec = self._block_records.get(ip, {})
++                blocked[ip] = {
++                    "since": item.get("since"),
++                    "rule": item.get("rule"),
++                    "rules": rec.get("rules", [item.get("rule")]),
++                    "action_target": rec.get("action_target", "ip"),
++                    "in_port": rec.get("in_port"),
++                    "mac": rec.get("mac"),
++                    "detail": rec.get("detail", "")
++                }
++            st = {
++                "ts": time.time(),
++                "switches": sorted(self.datapaths),
++                "blocked": blocked,
++                "blocked_ports": sorted(self.engine.blocked_ports),
++                "stats": dict((ip, {"flows": v["flows"], "pps": round(v["pps"], 1),
++                                     "bytes": v.get("bytes", 0)})
++                               for ip, v in self.engine.stats_snapshot().items()),
++                "block_idle_timeout": self.engine.rules["block_idle_timeout"],
++                "stats_interval": self.engine.rules["stats_interval"],
++                "rules_loaded_at": self.rules_loaded_at
++            }
+             tmp = STATUS_JSON + ".tmp"
+             with open(tmp, "w") as f:
+-                json.dump(st, f)
++                json.dump(st, f, separators=(",", ":"))
++                f.flush()
++                os.fsync(f.fileno())
+             os.replace(tmp, STATUS_JSON)
+-        except OSError:
+-            pass
++        except OSError as e:
++            self.logger.warning("Could not write IDS status file %s: %s", STATUS_JSON, e)
+ 
+     def add_flow(self, dp, priority, match, actions, idle_timeout=0, hard_timeout=0, flags=0):
+         ofp, parser = dp.ofproto, dp.ofproto_parser
+@@ -202,12 +226,19 @@
+ 
+         self.logger.warning("%s%s[IDS ALERT] %s | rule=%s | %s | detected %.0f ms after first packet%s",
+                             RED, BOLD, ip, ",".join(rules), first.detail, first.detect_latency_ms, END)
+-        self._log_event("ALERT", ip=ip, rules=rules, detail=first.detail, detect_latency_ms=first.detect_latency_ms)
++        mitigation_action = ("DROP ingress port %s and source MAC %s" % (first.in_port, first.mac)
++                             if first.action_target == "port"
++                             else "DROP source IP %s" % ip)
++        self._log_event("ALERT", ip=ip, rules=rules, detail=first.detail,
++                        detect_latency_ms=first.detect_latency_ms, mac=first.mac,
++                        in_port=first.in_port, action_target=first.action_target,
++                        mitigation_action=mitigation_action)
+ 
+         idle = self.engine.rules["block_idle_timeout"]
+         rec = {"ip": ip, "rules": rules, "detail": first.detail, "first_seen": first.first_seen,
+                "t_detect": first.t_detect, "detect_latency_ms": first.detect_latency_ms,
+-               "action_target": first.action_target, "in_port": first.in_port, "mac": first.mac}
++               "action_target": first.action_target, "in_port": first.in_port, "mac": first.mac,
++               "mitigation_action": mitigation_action}
+         self._block_records[ip] = rec
+ 
+         for d in list(self.datapaths.values()) or [dp]:
+@@ -234,7 +265,7 @@
+         if mac:
+             match_mac = parser.OFPMatch(eth_src=mac)
+             self.add_flow(dp, PRIO_BLOCK, match_mac, [], idle_timeout=idle)
+-        self.logger.warning("%s[HARDWARE DEFENSE] Quarantined physical Ingress Port %s & MAC %s (Priority 200 DROP)%s",
++        self.logger.warning("%s[HARDWARE DEFENSE] Ingress Port %s quarantined (Priority 200 DROP); MAC fallback %s (Priority 100 DROP)%s",
+                             RED, in_port, mac, END)
+ 
+     @set_ev_cls(ofp_event.EventOFPBarrierReply, MAIN_DISPATCHER)
+@@ -248,23 +279,45 @@
+         self.logger.warning("%s[IDS RESPONSE] %s MITIGATED | detection=%.0f ms | response=%.2f ms | total=%.0f ms%s",
+                             YELLOW, rec["ip"], rec["detect_latency_ms"], response_ms, total_ms, END)
+         self._log_event("BLOCK_INSTALLED", ip=rec["ip"], rules=rec["rules"], detail=rec["detail"],
+-                        detection_ms=rec["detect_latency_ms"], response_ms=response_ms, total_ms=total_ms)
++                        detection_ms=rec["detect_latency_ms"], response_ms=response_ms, total_ms=total_ms,
++                        mac=rec.get("mac"), in_port=rec.get("in_port"),
++                        action_target=rec.get("action_target", "ip"),
++                        mitigation_action=rec.get("mitigation_action", "DROP source IP %s" % rec["ip"]))
++        self._write_status()
+ 
+     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
+     def _flow_removed(self, ev):
+         msg = ev.msg
+-        if "in_port" in msg.match:
++        why = {0: "idle timeout", 1: "hard timeout", 2: "deleted"}.get(msg.reason, str(msg.reason))
++
++        # Priority-200 ingress-port quarantine sends a flow-removed notification on timeout.
++        if msg.priority == PRIO_PORT_QUARANTINE and "in_port" in msg.match:
+             in_port = msg.match["in_port"]
+             self.engine.unblock_port(in_port)
+-            self.logger.info("%s[IDS RECOVERY] Physical Port %s RESTORED%s", GREEN, in_port, END)
++            for ip, rec in list(self._block_records.items()):
++                if rec.get("action_target") == "port" and rec.get("in_port") == in_port:
++                    self.engine.unblock(ip)
++                    self._block_records.pop(ip, None)
++                    self._log_event("UNBLOCKED", ip=ip, rules=rec.get("rules", []),
++                                    detail=rec.get("detail", ""), reason=why,
++                                    mac=rec.get("mac"), in_port=in_port,
++                                    dropped_packets=getattr(msg, "packet_count", 0),
++                                    action_target="port", mitigation_action="Ingress port restored")
++            self.logger.info("%s[IDS RECOVERY] Physical Port %s RESTORED (%s)%s", GREEN, in_port, why, END)
++            self._write_status()
+             return
+ 
+         if msg.priority != PRIO_BLOCK or "ipv4_src" not in msg.match:
+             return
+         ip = msg.match["ipv4_src"]
+         self.engine.unblock(ip)
+-        why = {0: "idle timeout", 1: "hard timeout", 2: "deleted"}.get(msg.reason, str(msg.reason))
++        rec = self._block_records.pop(ip, {})
+         self.logger.info("%s[IDS RECOVERY] %s UNBLOCKED (%s)%s", GREEN, ip, why, END)
++        self._log_event("UNBLOCKED", ip=ip, rules=rec.get("rules", [rec.get("rule")]),
++                        detail=rec.get("detail", ""), reason=why, mac=rec.get("mac"),
++                        in_port=rec.get("in_port"), dropped_packets=getattr(msg, "packet_count", 0),
++                        action_target=rec.get("action_target", "ip"),
++                        mitigation_action="DROP rule removed")
+         self._write_status()
+ 
+     def _monitor(self):
+@@ -303,19 +356,28 @@
+             except KeyError:
+                 continue
+             seen.add(key)
+-            delta = st.packet_count - self._prev_pkts.get(key, 0)
++            delta_packets = st.packet_count - self._prev_pkts.get(key, 0)
++            delta_bytes = st.byte_count - self._prev_bytes.get(key, 0)
+             self._prev_pkts[key] = st.packet_count
++            self._prev_bytes[key] = st.byte_count
+             s = per_src.setdefault(key[0], {"flows": 0, "pkts": 0, "bytes": 0})
+             s["flows"] += 1
+-            s["pkts"] += max(delta, 0)
+-            s["bytes"] += st.byte_count
++            s["pkts"] += max(delta_packets, 0)
++            # CSV field bytes_in_interval is a counter delta, not a cumulative total.
++            s["bytes"] += max(delta_bytes, 0)
+         for k in [k for k in self._prev_pkts if k not in seen]:
+             del self._prev_pkts[k]
++            self._prev_bytes.pop(k, None)
+ 
+         alerts = self.engine.evaluate_stats(per_src, interval, now)
+-        for ip, s in self.engine.stats_snapshot().items():
++        try:
+             with open(STATS_CSV, "a") as f:
+-                f.write("%.3f,%s,%d,%.1f,%d\n" % (now, ip, s["flows"], s["pps"], s["bytes"]))
++                for ip, s in self.engine.stats_snapshot().items():
++                    f.write("%.3f,%s,%d,%.1f,%d\n" %
++                            (now, ip, s["flows"], s["pps"], s.get("bytes", 0)))
++                f.flush()
++        except OSError as e:
++            self.logger.warning("Could not append flow statistics to %s: %s", STATS_CSV, e)
+ 
+         line = " | ".join("%s flows=%d pps=%.1f" % (ip, s["flows"], s["pps"])
+                           for ip, s in sorted(self.engine.stats_snapshot().items()))
