@@ -41,150 +41,754 @@ HTML_PAGE = r'''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>SDN-IDS · Live Telemetry</title>
+<title>sdn-ids monitor</title>
 <style>
-:root{--bg:#080d18;--panel:#101827;--panel2:#0d1422;--line:#243248;--muted:#91a0b8;--text:#e8eef8;--cyan:#57d7f3;--blue:#6ea8fe;--green:#50e3a4;--red:#ff667b;--amber:#ffc86b;--radius:17px}
-*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;background:radial-gradient(ellipse at 12% -10%,#172b4b 0,transparent 34%),radial-gradient(ellipse at 100% 0,#102f39 0,transparent 25%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
-button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}.shell{max-width:1500px;margin:auto;padding:26px clamp(14px,3vw,38px) 40px}.topbar{display:flex;gap:18px;align-items:center;justify-content:space-between;margin-bottom:24px}.brand{display:flex;gap:13px;align-items:center}.brand-mark{width:46px;height:46px;display:grid;place-items:center;border:1px solid #2a5167;border-radius:14px;background:linear-gradient(135deg,#14374a,#132038);color:var(--cyan);box-shadow:0 8px 30px #0004}.eyebrow{color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:.17em;text-transform:uppercase}.brand h1{font-size:clamp(22px,3vw,30px);letter-spacing:-.035em;margin:2px 0 0}.subhead{color:var(--muted);font-size:12px;margin-top:3px}.top-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}.live-pill,.status-pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 11px;background:#132a27;border:1px solid #235548;color:var(--green);font-size:11px;font-weight:800;letter-spacing:.04em}.live-dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor}.small-muted{font-size:11px;color:var(--muted)}.section{margin-top:20px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}.section-head h2{font-size:13px;text-transform:uppercase;letter-spacing:.11em;color:#c8d4e7;margin:0}.section-note{color:var(--muted);font-size:11px}.grid{display:grid;gap:14px}.metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.card{background:linear-gradient(145deg,rgba(17,26,42,.97),rgba(12,19,32,.97));border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 12px 32px #0002;min-width:0}.metric-card{padding:17px 18px;position:relative;overflow:hidden}.metric-top{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.metric-icon{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:10px;color:var(--cyan);font-size:15px}.metric-value{font-size:clamp(22px,2.5vw,32px);font-weight:750;letter-spacing:-.04em;margin-top:17px;line-height:1.05;overflow-wrap:anywhere}.metric-foot{font-size:11px;color:var(--muted);margin-top:9px}.accent-green{color:var(--green)}.accent-red{color:var(--red)}.accent-blue{color:var(--blue)}.accent-cyan{color:var(--cyan)}.accent-amber{color:var(--amber)}
-.layout-two{grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr)}.topology-card{padding:20px}.topology{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(115px,.72fr) minmax(0,1fr);grid-template-rows:repeat(2,minmax(96px,auto));gap:18px 28px;padding:10px 4px 14px;isolation:isolate}.topology-lines{position:absolute;z-index:-1;inset:0;width:100%;height:100%;pointer-events:none}.topology-lines line{stroke:#40516b;stroke-width:2;stroke-dasharray:6 6}.topology-lines line.quarantined{stroke:var(--red);stroke-width:3;stroke-dasharray:3 4}.node{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#111c2e;box-shadow:0 6px 22px #0003}.node.h1{grid-column:1;grid-row:1/3;border-color:#773443;background:linear-gradient(135deg,#291722,#151b2b)}.node.s1{grid-column:2;grid-row:1/3;text-align:center;border-color:#345875;background:linear-gradient(135deg,#13293d,#101827)}.node.h2{grid-column:3;grid-row:1;border-color:#2d4c78;background:linear-gradient(135deg,#142640,#101827)}.node.h3{grid-column:3;grid-row:2;border-color:#235b4b;background:linear-gradient(135deg,#122d2a,#101827)}.node-role{font-size:9px;text-transform:uppercase;letter-spacing:.13em;font-weight:800;color:var(--muted)}.node-name{font-weight:800;font-size:18px;letter-spacing:-.025em}.node-desc{font-size:11px;color:#a5b3c9;overflow-wrap:anywhere}.node-foot{margin-top:3px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chip{display:inline-flex;gap:5px;align-items:center;border-radius:6px;padding:3px 7px;font-size:9px;font-weight:800;letter-spacing:.03em;border:1px solid var(--line);color:#b4c1d4;background:#101827}.chip.red{color:var(--red);border-color:#703346;background:#321b27}.chip.green{color:var(--green);border-color:#235c4c;background:#142d2a}.chip.blue{color:var(--blue);border-color:#30547b;background:#17263d}.chip.cyan{color:var(--cyan);border-color:#285665;background:#122832}.chip.amber{color:var(--amber);border-color:#6b522b;background:#2c2519}.topology-legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:10px;border-top:1px solid var(--line);padding-top:12px}.legend-item{display:flex;gap:7px;align-items:center}.legend-dot{width:7px;height:7px;border-radius:50%}
-.side-stack{display:grid;gap:14px;grid-template-rows:auto 1fr}.status-card{padding:17px 18px}.card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.card-title h3{font-size:12px;margin:0;text-transform:uppercase;letter-spacing:.09em}.state-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #1c293d}.state-row:last-child{border-bottom:0}.state-name{font-size:12px;color:#c8d4e7}.state-value{font-weight:750;font-size:11px;text-align:right}.state-online{color:var(--green)}.state-offline{color:var(--red)}.state-warn{color:var(--amber)}.status-sub{font-size:10px;color:var(--muted);margin-top:12px;overflow-wrap:anywhere}
-.charts{grid-template-columns:repeat(3,minmax(0,1fr))}.chart-card{padding:16px 17px 10px;min-width:0}.chart-title{display:flex;justify-content:space-between;gap:8px;align-items:start}.chart-title h3{margin:0;font-size:12px;font-weight:700}.chart-unit{color:var(--muted);font-size:10px}.chart-kpi{font-size:19px;font-weight:750;letter-spacing:-.03em;margin-top:7px}.chart-canvas{width:100%;height:130px;display:block;margin-top:7px}.chart-foot{font-size:10px;color:var(--muted);padding:0 0 4px}
-.alerts-card,.flows-card{overflow:hidden}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:650px}thead{background:#0b1220}th{padding:11px 15px;text-align:left;color:#8fa0ba;text-transform:uppercase;letter-spacing:.08em;font-size:9px;font-weight:800;white-space:nowrap}td{padding:12px 15px;border-top:1px solid #202c40;vertical-align:top;font-size:11px;color:#cdd8e8}tbody tr:hover{background:#172236}td.mono, .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px}.event-type{display:inline-block;border-radius:6px;padding:4px 7px;font-size:9px;font-weight:850;letter-spacing:.06em;white-space:nowrap}.event-alert{background:#351b27;color:var(--red);border:1px solid #713444}.event-block{background:#132f2a;color:var(--green);border:1px solid #275d4c}.event-recovery{background:#172941;color:var(--blue);border:1px solid #335c8a}.event-other{background:#28251e;color:var(--amber);border:1px solid #66512d}.event-detail{color:#e2eaf5;min-width:200px}.event-meta{color:var(--muted);font-size:10px;margin-top:4px;line-height:1.6}.rule-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.rule-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(72px,.5fr) minmax(72px,.5fr);gap:9px;align-items:center;border:1px solid #26344a;border-radius:12px;padding:12px;background:#0d1524}.rule-name{font-weight:750;font-size:11px;overflow-wrap:anywhere}.rule-enabled{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px;margin-top:5px}.rule-field label{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}.rule-field input[type=number]{width:100%;min-width:0;border:1px solid #34435a;border-radius:7px;background:#0a111e;color:var(--text);padding:7px 8px}.rule-enabled input{accent-color:var(--green)}.rules-card{padding:19px}.rule-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}.btn{border:1px solid #34445d;border-radius:9px;background:#152136;color:#e5edf9;padding:9px 12px;font-size:11px;font-weight:750;transition:filter .15s}.btn:hover{filter:brightness(1.17)}.btn.primary{background:#123645;border-color:#28647a;color:#8de9fb}.btn:disabled{opacity:.5;cursor:wait}.rules-summary{color:var(--muted);font-size:11px;margin:0 0 13px}.rules-status{color:var(--muted);font-size:11px;margin-top:10px;min-height:18px}.footer{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-top:22px;color:#74839b;font-size:10px}.empty{padding:27px 16px;text-align:center;color:var(--muted);font-size:12px}.error-banner{display:none;margin-bottom:14px;padding:11px 13px;border-radius:9px;border:1px solid #704c29;background:#2c2318;color:#ffd695;font-size:11px}.error-banner.show{display:block}.pill-neutral{display:inline-block;padding:4px 7px;border-radius:6px;color:#b4c1d4;border:1px solid #34445b;background:#172236;font-size:9px;font-weight:800}.toolbar-button{background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:#cdd8e8;font-size:10px;font-weight:750}.toolbar-button:hover{border-color:#4e7a91;color:var(--cyan)}
-@media(max-width:1100px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.layout-two{grid-template-columns:1fr}.side-stack{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto}.charts{grid-template-columns:repeat(2,minmax(0,1fr))}.charts .chart-card:last-child{grid-column:1/-1}}
-@media(max-width:680px){.shell{padding:18px 12px 28px}.topbar{align-items:flex-start}.top-actions{gap:6px}.subhead{max-width:250px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric-card{padding:13px}.metric-value{margin-top:13px;font-size:23px}.side-stack{grid-template-columns:1fr}.charts{grid-template-columns:1fr}.charts .chart-card:last-child{grid-column:auto}.rule-list{grid-template-columns:1fr}.topology{grid-template-columns:1fr;grid-template-rows:auto;gap:10px}.node.h1,.node.s1,.node.h2,.node.h3{grid-column:1;grid-row:auto;text-align:left}.topology-lines{display:none}.node{min-height:91px}.brand-mark{width:39px;height:39px}.live-pill{padding:6px 8px}.top-actions .small-muted{display:none}}
-@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  :root{
+    --bg:#0b0e13; --panel:#11151c; --panel2:#0e1218; --bd:#232b36; --bd2:#1a212b;
+    --fg:#c2ccd6; --mut:#6b7684; --dim:#49525e;
+    --grn:#3fb950; --red:#f0504a; --amb:#d6a426; --blu:#4c93f0; --cyn:#3fb6c2; --vio:#9a7cf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--fg);
+    font:12.5px/1.45 ui-monospace,"DejaVu Sans Mono","SF Mono",Menlo,Consolas,monospace}
+  .wrap{max-width:1560px;margin:0 auto;padding:10px 14px 30px}
+
+  /* top bar */
+  .bar{display:flex;align-items:center;justify-content:space-between;
+    border:1px solid var(--bd);background:var(--panel);padding:8px 12px}
+  .bar .l{display:flex;align-items:baseline;gap:10px}
+  .logo{color:var(--fg);font-weight:700;letter-spacing:.5px}
+  .logo b{color:var(--cyn)}
+  .tag{color:var(--mut);font-size:11px}
+  .bar .r{display:flex;align-items:center;gap:16px;font-size:11px}
+  .stat-ctrl{display:flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;border-radius:1px;display:inline-block;background:var(--dim)}
+  .dot.on{background:var(--grn)} .dot.off{background:var(--red)}
+  .blink{animation:bl 1.2s steps(2,start) infinite}
+  @keyframes bl{0%,50%{opacity:1}51%,100%{opacity:.25}}
+  .clock{color:var(--mut)}
+
+  /* threat line */
+  .threat{display:none;border:1px solid #5a2422;border-left:3px solid var(--red);
+    background:#1a0f10;color:var(--red);padding:6px 12px;margin-top:8px;font-size:12px}
+  .threat.show{display:block}
+  .threat b{color:#ff756f}
+
+  /* stat strip */
+  .strip{display:grid;grid-template-columns:repeat(6,1fr);margin-top:8px;
+    border:1px solid var(--bd);border-right:0;background:var(--panel)}
+  .cell{border-right:1px solid var(--bd);padding:9px 12px;min-width:0}
+  .cell .k{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.6px}
+  .cell .v{font-size:22px;font-weight:700;margin-top:3px;letter-spacing:-.5px;white-space:nowrap}
+  .cell .v small{font-size:11px;color:var(--mut);font-weight:400}
+  .cell .s{color:var(--dim);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vred{color:var(--red)} .vgrn{color:var(--grn)} .vamb{color:var(--amb)} .vblu{color:var(--blu)} .vcyn{color:var(--cyn)} .vvio{color:var(--vio)}
+
+  /* layout */
+  .grid{display:grid;grid-template-columns:1fr 430px;gap:8px;margin-top:8px}
+  .col{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .box{border:1px solid var(--bd);background:var(--panel);min-width:0}
+  .box>h2{font-size:11px;font-weight:700;color:var(--fg);text-transform:uppercase;letter-spacing:.8px;
+    padding:7px 11px;border-bottom:1px solid var(--bd);background:var(--panel2);
+    display:flex;justify-content:flex-start;align-items:center;gap:8px}
+  .box>h2::before{content:"";width:3px;height:11px;background:var(--cyn);display:inline-block;margin-right:-1px}
+  .box>h2 .note{color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;margin-left:auto}
+  .box.grow{display:flex;flex-direction:column}
+  .col>.box.grow{flex:1}
+  .box.grow .log{flex:1;max-height:470px}
+  .pad{padding:10px 11px}
+  .full{margin-top:8px}
+
+  /* charts */
+  #chart{width:100%;height:180px;display:block}
+  .cgrid{stroke:var(--bd2);stroke-width:1}
+  .cthr{stroke:var(--amb);stroke-width:1;stroke-dasharray:3 3;opacity:.55}
+  .clab{fill:var(--dim);font-size:9.5px}
+  .legend{display:flex;flex-wrap:wrap;gap:3px 14px;padding:8px 11px;border-top:1px solid var(--bd);font-size:10.5px}
+  .lg{display:flex;align-items:center;gap:5px;color:var(--mut)}
+  .sw{width:9px;height:2px;display:inline-block}
+  .minis{display:grid;grid-template-columns:repeat(3,1fr)}
+  .mini{padding:8px 11px 6px;border-right:1px solid var(--bd)}
+  .mini:last-child{border-right:0}
+  .mini .mk{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between}
+  .mini .mv{font-size:15px;font-weight:700;margin:2px 0 4px}
+  .mini svg{width:100%;height:56px;display:block}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;color:var(--mut);font-weight:400;font-size:10px;text-transform:uppercase;letter-spacing:.5px;
+    padding:6px 11px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--panel)}
+  td{padding:5px 11px;border-bottom:1px solid var(--bd2);font-size:11.5px;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  .t-state{font-size:10px;padding:1px 5px;border:1px solid var(--bd);color:var(--mut)}
+  .st-up{color:var(--grn);border-color:#204a2a}
+  .st-blk{color:var(--red);border-color:#5a2422;background:#1a0f10}
+  .st-prot{color:var(--blu);border-color:#1e3a5a}
+  .st-idle{color:var(--dim)}
+  .st-att{color:var(--red)}
+  td.num{color:var(--fg);text-align:right} td.mut{color:var(--mut)}
+  th.num{text-align:right}
+  .hrow-blk td{background:#140c0d}
+
+  /* flow table */
+  .ftools{display:flex;gap:6px;align-items:center;padding:7px 11px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+  .fbtn{background:var(--panel2);border:1px solid var(--bd);color:var(--mut);font:inherit;font-size:10.5px;
+    padding:2px 8px;cursor:pointer}
+  .fbtn:hover{color:var(--fg)}
+  .fbtn.on{color:var(--bg);background:var(--cyn);border-color:var(--cyn)}
+  .fsum{margin-left:auto;color:var(--dim);font-size:10.5px}
+  .fwrap{max-height:420px;overflow:auto}
+  .fwrap::-webkit-scrollbar,.log::-webkit-scrollbar{width:8px;height:8px}
+  .fwrap::-webkit-scrollbar-track,.log::-webkit-scrollbar-track{background:var(--panel2)}
+  .fwrap::-webkit-scrollbar-thumb,.log::-webkit-scrollbar-thumb{background:var(--bd)}
+  .k-fwd{color:var(--grn)} .k-drop{color:var(--red)} .k-ctrl{color:var(--amb)} .k-oth{color:var(--mut)}
+  .frow-drop td{background:#140c0d}
+  td.match{color:var(--fg);max-width:520px;overflow:hidden;text-overflow:ellipsis}
+  td.role{color:var(--dim);font-size:10.5px}
+  td.act{color:var(--mut)}
+
+  /* event log */
+  .log{font-size:11px;max-height:300px;overflow-y:auto}
+  .ln{display:flex;gap:8px;padding:4px 11px;border-bottom:1px solid var(--bd2);white-space:nowrap;overflow:hidden}
+  .ln:hover{background:var(--panel2)}
+  .ln .ts{color:var(--dim)}
+  .ln .ev{width:54px;flex:none}
+  .ev-alert{color:var(--red)} .ev-block{color:var(--amb)} .ev-recov{color:var(--grn)}
+  .ln .ip{color:var(--fg);width:76px;flex:none}
+  .ln .rl{color:var(--cyn);flex:none}
+  .ln .ms{color:var(--mut)}
+  .ln .dt{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+
+  /* blocks */
+  .blk{padding:7px 11px;border-bottom:1px solid var(--bd2);font-size:11.5px}
+  .blk:last-child{border-bottom:0}
+  .blk .ip{color:var(--red);font-weight:700}
+  .blk .meta{color:var(--mut);font-size:10.5px;margin-top:2px}
+  .blk .ttl{float:right;color:var(--amb);font-size:10.5px}
+  .empty{padding:16px 11px;color:var(--dim);font-size:11px;text-align:center}
+
+  /* rules */
+  .rules{display:flex;flex-wrap:wrap;gap:6px 18px;padding:9px 11px;font-size:11px}
+  .ru{color:var(--mut)}
+  .ru b{color:var(--fg);font-weight:700}
+  .ru i{color:var(--dim);font-style:normal}
+  .ru.off{color:var(--dim);text-decoration:line-through}
+
+  .foot{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-size:10.5px;margin-top:8px;padding:0 2px}
+
+  /* full-traffic additions */
+  .tw{overflow-x:auto}
+  .cwrap{max-height:400px;overflow:auto}
+  .cwrap::-webkit-scrollbar,.tw::-webkit-scrollbar{width:8px;height:8px}
+  .cwrap::-webkit-scrollbar-track,.tw::-webkit-scrollbar-track{background:var(--panel2)}
+  .cwrap::-webkit-scrollbar-thumb,.tw::-webkit-scrollbar-thumb{background:var(--bd)}
+  .box>h2 .tabs{margin-left:auto;display:flex;gap:4px}
+  .box>h2 .tabs .fbtn{text-transform:none;letter-spacing:0}
+  .svc{display:grid;grid-template-columns:96px 1fr 92px;gap:8px;align-items:center;padding:4px 11px;border-bottom:1px solid var(--bd2);font-size:11px}
+  .svc:last-child{border-bottom:0}
+  .svc .nm{color:var(--fg);white-space:nowrap} .svc .nm i{color:var(--dim);font-style:normal}
+  .svc .tr{height:7px;background:var(--panel2);border:1px solid var(--bd2)}
+  .svc .tr span{display:block;height:100%;background:var(--cyn)}
+  .svc .vl{text-align:right;color:var(--mut);white-space:nowrap}
+  .ev-open{color:var(--grn)} .ev-close{color:var(--dim)}
+  .crow-blk td{background:#140c0d}
+  .t-ok{color:var(--grn);border-color:#204a2a}
+  td.sv{color:var(--cyn)}
+  td.hot{color:var(--amb)}
+  .zero{color:var(--dim)}
+
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}.strip{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:620px){.strip{grid-template-columns:repeat(2,1fr)}.minis{grid-template-columns:1fr}.mini{border-right:0;border-bottom:1px solid var(--bd)}}
+  @media(prefers-reduced-motion:reduce){.blink{animation:none}}
 </style>
 </head>
 <body>
-<div class="shell">
-<header class="topbar">
-  <div class="brand"><div class="brand-mark" aria-hidden="true">◈</div><div><div class="eyebrow">Network Defense / Telemetry</div><h1>SDN-IDS <span style="color:var(--cyan)">Live Panel</span></h1><div class="subhead">OpenFlow 1.3 · Ryu controller · hardware-level flow mitigation</div></div></div>
-  <div class="top-actions"><span class="live-pill"><span class="live-dot"></span> LIVE POLLING</span><span class="small-muted">Updated <strong id="updatedAt">—</strong></span><button id="refreshNow" class="toolbar-button" type="button">Refresh now ↻</button></div>
-</header>
-<div id="errorBanner" class="error-banner" role="status"></div>
-<section class="grid metrics" aria-label="Network summary">
-  <article class="card metric-card"><div class="metric-top"><span>Controller</span><span class="metric-icon">⌘</span></div><div id="controllerMetric" class="metric-value">Checking…</div><div id="controllerFoot" class="metric-foot">Waiting for status telemetry</div></article>
-  <article class="card metric-card"><div class="metric-top"><span>Packet throughput</span><span class="metric-icon">⇢</span></div><div id="ppsMetric" class="metric-value accent-cyan">— <small style="font-size:12px">pps</small></div><div id="ppsFoot" class="metric-foot">Packets per second across monitored sources</div></article>
-  <article class="card metric-card"><div class="metric-top"><span>Network throughput</span><span class="metric-icon">⌁</span></div><div id="bpsMetric" class="metric-value accent-blue">—</div><div id="bpsFoot" class="metric-foot">Estimated from interval byte counters</div></article>
-  <article class="card metric-card"><div class="metric-top"><span>Active flows</span><span class="metric-icon">⤨</span></div><div id="flowsMetric" class="metric-value">—</div><div id="flowsFoot" class="metric-foot">Quarantined ingress ports: —</div></article>
-</section>
+<div class="wrap">
 
-<section class="section">
- <div class="section-head"><h2>Topology & ingress defense</h2><span id="switchBadge" class="pill-neutral">s1 · checking</span></div>
- <div class="grid layout-two">
-  <article class="card topology-card">
-   <div class="topology" id="topology">
-    <svg class="topology-lines" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true"><line id="lineH1" x1="275" y1="130" x2="410" y2="130"/><line id="lineH2" x1="590" y1="104" x2="730" y2="64"/><line id="lineH3" x1="590" y1="156" x2="730" y2="196"/></svg>
-    <div class="node h1" id="nodeH1"><div class="node-role">Untrusted edge</div><div class="node-name" style="color:var(--red)">h1 · Attacker</div><div class="node-desc">10.0.0.1 · MAC 00:00:00:00:00:01</div><div class="node-foot"><span id="attackerState" class="chip red">ATTACKER ROLE</span><span id="attackerPort" class="chip">Ingress —</span></div></div>
-    <div class="node s1" id="nodeS1"><div class="node-role">OpenFlow 1.3</div><div class="node-name" style="color:var(--cyan)">s1</div><div class="node-desc">Open vSwitch · Flow table</div><div class="node-foot" style="justify-content:center"><span id="switchState" class="chip cyan">CONNECTING</span></div></div>
-    <div class="node h2" id="nodeH2"><div class="node-role">Protected endpoint</div><div class="node-name" style="color:var(--blue)">h2 · Server</div><div class="node-desc">10.0.0.2 · Protected host</div><div class="node-foot"><span class="chip blue">PROTECTED</span><span id="serverPort" class="chip">Port —</span></div></div>
-    <div class="node h3" id="nodeH3"><div class="node-role">Trusted endpoint</div><div class="node-name" style="color:var(--green)">h3 · Legitimate host</div><div class="node-desc">10.0.0.3 · Normal traffic</div><div class="node-foot"><span class="chip green">LEGITIMATE</span><span id="clientPort" class="chip">Port —</span></div></div>
-   </div>
-   <div class="topology-legend"><span class="legend-item"><i class="legend-dot" style="background:var(--red)"></i>Attacker / quarantined</span><span class="legend-item"><i class="legend-dot" style="background:var(--blue)"></i>Protected server</span><span class="legend-item"><i class="legend-dot" style="background:var(--green)"></i>Legitimate host</span><span class="legend-item"><i class="legend-dot" style="background:#526781"></i>Observed switch link</span></div>
-  </article>
-  <div class="side-stack">
-   <article class="card status-card"><div class="card-title"><h3>Defense status</h3><span class="chip green" id="defenseChip">MONITORING</span></div>
-    <div class="state-row"><span class="state-name">Controller telemetry</span><strong class="state-value" id="controllerState">—</strong></div>
-    <div class="state-row"><span class="state-name">Switch s1 connection</span><strong class="state-value" id="switchConnection">—</strong></div>
-    <div class="state-row"><span class="state-name">Ingress quarantine</span><strong class="state-value" id="quarantineState">—</strong></div>
-    <div class="state-row"><span class="state-name">Blocked source records</span><strong class="state-value" id="blockedSources">—</strong></div>
-    <div class="status-sub" id="statusDetails">Status is read from logs/status.json and live OVS flow output.</div>
-   </article>
-   <article class="card status-card"><div class="card-title"><h3>Last mitigation</h3><span class="chip amber">BARRIER CONFIRMATION</span></div>
-    <div id="lastMitigationTitle" style="font-size:17px;font-weight:800;letter-spacing:-.025em">Waiting for an IDS event</div>
-    <div id="lastMitigationBody" class="status-sub" style="margin-top:7px">When a rule fires, its requested action and switch confirmation appear here.</div>
-   </article>
+  <div class="bar">
+    <div class="l">
+      <span class="logo">sdn-ids<b>//</b>monitor</span>
+      <span class="tag">ryu openflow1.3 · ovs s1 · 13-host lan</span>
+    </div>
+    <div class="r">
+      <span class="stat-ctrl"><span id="dot" class="dot"></span><span id="ctrlTxt">controller: ...</span></span>
+      <span class="stat-ctrl"><span id="swDot" class="dot"></span><span id="swTxt">switch: ...</span></span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
   </div>
- </div>
-</section>
 
-<section class="section">
- <div class="section-head"><h2>Live traffic telemetry</h2><span class="section-note">Derived from logs/flow_stats.csv · updates automatically</span></div>
- <div class="grid charts">
-  <article class="card chart-card"><div class="chart-title"><div><h3>Packets per second</h3><div class="chart-unit">pps · interval deltas</div></div><span class="chip cyan">RATE</span></div><div id="chartPpsKpi" class="chart-kpi">—</div><canvas id="chartPps" class="chart-canvas" aria-label="Packets per second over time"></canvas><div class="chart-foot">Aggregate rate for tracked source IPs</div></article>
-  <article class="card chart-card"><div class="chart-title"><div><h3>Byte throughput</h3><div class="chart-unit">bytes/sec · estimated</div></div><span class="chip blue">BANDWIDTH</span></div><div id="chartBpsKpi" class="chart-kpi">—</div><canvas id="chartBps" class="chart-canvas" aria-label="Bytes per second over time"></canvas><div class="chart-foot">Interval byte deltas divided by sample interval</div></article>
-  <article class="card chart-card"><div class="chart-title"><div><h3>Tracked flows</h3><div class="chart-unit">active flow entries</div></div><span class="chip green">FLOW TABLE</span></div><div id="chartFlowsKpi" class="chart-kpi">—</div><canvas id="chartFlows" class="chart-canvas" aria-label="Active flows over time"></canvas><div class="chart-foot">Sum of the controller's per-source flow counts</div></article>
- </div>
-</section>
+  <div id="threat" class="threat"></div>
 
-<section class="section">
- <div class="section-head"><h2>Live attack alert feed</h2><span id="eventCount" class="section-note">Waiting for logs/ids_events.jsonl</span></div>
- <article class="card alerts-card"><div class="table-wrap"><table><thead><tr><th>Time</th><th>Event</th><th>Rule / source</th><th>Detection & mitigation details</th><th>Ingress</th></tr></thead><tbody id="eventsBody"><tr><td colspan="5" class="empty">Waiting for IDS events…</td></tr></tbody></table></div></article>
-</section>
+  <div class="strip">
+    <div class="cell"><div class="k">alerts</div><div id="sAlerts" class="v">0</div><div class="s">since log clear</div></div>
+    <div class="cell"><div class="k">blocked</div><div id="sBlocks" class="v vamb">0</div><div id="sBlocksS" class="s">no drop rules</div></div>
+    <div class="cell"><div class="k">network packets/s</div><div id="sPps" class="v vcyn">0 <small>pps</small></div><div id="sPpsS" class="s">every port on the switch</div></div>
+    <div class="cell"><div class="k">throughput</div><div id="sBps" class="v vvio">0 <small>B/s</small></div><div class="s">sent by all hosts</div></div>
+    <div class="cell"><div class="k">live connections</div><div id="sFlows" class="v vgrn">0</div><div id="sFlowsS" class="s">allowed tcp flows</div></div>
+    <div class="cell"><div class="k">dropped by ips</div><div id="sDrop" class="v vred">0 <small>pkts</small></div><div id="sRulesS" class="s">-</div></div>
+  </div>
 
-<section class="section">
- <div class="section-head"><h2>Active OpenFlow 1.3 flow table</h2><span id="flowCount" class="section-note">Reading ovs-ofctl…</span></div>
- <article class="card flows-card"><div class="table-wrap"><table><thead><tr><th>Priority</th><th>Rule type</th><th>Match conditions</th><th>Actions</th><th>Packets</th><th>Bytes</th></tr></thead><tbody id="flowsBody"><tr><td colspan="6" class="empty">Waiting for ovs-ofctl dump-flows…</td></tr></tbody></table></div></article>
-</section>
+  <div class="grid">
+    <div class="col">
 
-<section class="section">
- <div class="section-head"><h2>System defense controls</h2><button id="toggleRules" class="toolbar-button" type="button" aria-expanded="false" aria-controls="rulesPanel">Show thresholds ▾</button></div>
- <div class="card rules-card" id="rulesPanel" hidden>
-  <p class="rules-summary">These controls read <code>controller/ids_rules.json</code>. Saving writes the JSON configuration atomically; the Ryu controller detects the updated file on its next monitoring cycle. Reload touches the file timestamp to request a controller reload without changing values.</p>
-  <div id="ruleList" class="rule-list"><div class="empty">Loading rule configuration…</div></div>
-  <div class="rule-actions"><button id="saveRules" class="btn primary" type="button">Save thresholds</button><button id="reloadRules" class="btn" type="button">Reload from JSON / notify controller</button><button id="resetRuleForm" class="btn" type="button">Discard unsaved edits</button></div>
-  <div id="rulesStatus" class="rules-status" role="status"></div>
- </div>
-</section>
-<footer class="footer"><span>SDN-IDS · Local telemetry only · No external JavaScript or CDN dependencies</span><span>API refresh interval: <strong id="pollLabel">2.5 s</strong> · <span id="apiHealth">API checking</span></span></footer>
+      <div class="box">
+        <h2>traffic — packets/s sent by every host<span class="note">live from switch port counters · dashed = packet_rate threshold</span>
+          <span class="tabs"><button class="fbtn on" id="scLin">linear</button><button class="fbtn" id="scLog">log</button></span></h2>
+        <div class="pad" style="padding-bottom:0"><svg id="chart" viewBox="0 0 1000 180" preserveAspectRatio="none"></svg></div>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="box">
+        <h2>hosts — every node, every packet<span class="note">13 nodes · counters read from each switch port (allowed + dropped)</span></h2>
+        <div class="tw"><table>
+          <thead><tr><th style="width:44px">node</th><th>addr</th><th>role</th><th>port</th>
+            <th class="num">sent/s</th><th class="num">recv/s</th><th class="num">pkts sent</th><th class="num">pkts recv</th>
+            <th class="num">conns</th><th class="num">dropped</th><th style="width:88px">state</th></tr></thead>
+          <tbody id="hosts"></tbody>
+        </table></div>
+      </div>
+
+      <div class="box">
+        <h2>live connections — who is talking to whom<span class="note" id="connNote">grouped by client → server:service</span></h2>
+        <div class="cwrap tw"><table>
+          <thead><tr><th>client</th><th>server</th><th>service</th><th class="num">conns</th>
+            <th class="num">pkts/s</th><th class="num">packets</th><th class="num">bytes</th><th class="num">idle</th><th style="width:80px">status</th></tr></thead>
+          <tbody id="conns"><tr><td colspan="9" class="empty">waiting for traffic...</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <div class="box">
+        <h2>network totals — history<span class="note" id="seriesNote">from logs/flow_stats.csv</span></h2>
+        <div class="minis">
+          <div class="mini"><div class="mk"><span>packets / s</span><span id="mPpsMax"></span></div><div id="mPps" class="mv vcyn">0</div><svg id="sparkPps" viewBox="0 0 300 56" preserveAspectRatio="none"></svg></div>
+          <div class="mini"><div class="mk"><span>bytes / s</span><span id="mBpsMax"></span></div><div id="mBps" class="mv vvio">0</div><svg id="sparkBps" viewBox="0 0 300 56" preserveAspectRatio="none"></svg></div>
+          <div class="mini"><div class="mk"><span>active tcp flows</span><span id="mFlMax"></span></div><div id="mFl" class="mv vgrn">0</div><svg id="sparkFl" viewBox="0 0 300 56" preserveAspectRatio="none"></svg></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col">
+      <div class="box">
+        <h2>active blocks<span class="note">ips drops in ovs</span></h2>
+        <div id="blocks"><div class="empty">no active blocks — traffic nominal</div></div>
+      </div>
+      <div class="box">
+        <h2>traffic by service<span class="note">packets/s per destination port</span></h2>
+        <div id="svcs"><div class="empty">no traffic yet</div></div>
+      </div>
+      <div class="box grow">
+        <h2>activity feed<span class="note" id="evCount">0</span>
+          <span class="tabs"><button class="fbtn on" data-tab="all">all traffic</button><button class="fbtn" data-tab="ids">ids events</button></span></h2>
+        <div class="log" id="log"><div class="empty">waiting for events...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box full">
+    <h2>ovs flow table — s1<span class="note">every rule installed in the switch, highest priority first</span></h2>
+    <div class="ftools">
+      <button class="fbtn on" data-f="all">all <span id="cAll">0</span></button>
+      <button class="fbtn" data-f="OUTPUT">forward <span id="cFwd">0</span></button>
+      <button class="fbtn" data-f="DROP">drop <span id="cDrop">0</span></button>
+      <button class="fbtn" data-f="CONTROLLER">to controller <span id="cCtrl">0</span></button>
+      <span class="fsum" id="fsum"></span>
+    </div>
+    <div class="fwrap">
+      <table>
+        <thead><tr><th style="width:52px" class="num">prio</th><th style="width:64px">type</th><th style="width:150px">role</th>
+          <th>match</th><th>actions</th><th class="num">packets</th><th class="num">bytes</th></tr></thead>
+        <tbody id="flows"><tr><td colspan="7" class="empty">reading flow table...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="box full">
+    <h2>detection rules<span class="note" id="rulesNote">controller/ids_rules.json</span></h2>
+    <div class="rules" id="rules"></div>
+  </div>
+
+  <div class="foot">
+    <span>updated <span id="upd">--</span></span>
+    <span>telemetry age <span id="age">--</span>s</span>
+    <span id="err" style="color:var(--amb)"></span>
+  </div>
+
 </div>
+
 <script>
-'use strict';
-const POLL_MS = 2500;
-let currentRules = null;
-let latestPayload = null;
-let lastRefresh = 0;
-let refreshInFlight = false;
-const $ = id => document.getElementById(id);
-const fmtInt = n => Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '—';
-function fmtRate(n){ n=Number(n)||0; if(n>=1e9)return (n/1e9).toFixed(2)+' GB/s'; if(n>=1e6)return (n/1e6).toFixed(2)+' MB/s'; if(n>=1e3)return (n/1e3).toFixed(2)+' kB/s'; return n.toFixed(n<10?1:0)+' B/s'; }
-function fmtTime(ts, fallback='—'){ const n=Number(ts); if(!Number.isFinite(n)||n<=0)return fallback; return new Date(n*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
-function setState(id,text,kind){ const el=$(id); el.textContent=text; el.className='state-value '+(kind==='ok'?'state-online':kind==='bad'?'state-offline':kind==='warn'?'state-warn':''); }
-function textCell(tr, text, cls=''){ const td=document.createElement('td'); td.textContent=text ?? '—'; if(cls)td.className=cls; tr.appendChild(td); return td; }
-function chipClass(event){ if(event==='ALERT')return 'event-type event-alert'; if(event==='BLOCK_INSTALLED')return 'event-type event-block'; if(event==='UNBLOCKED')return 'event-type event-recovery'; return 'event-type event-other'; }
-function eventLabel(e){return ({ALERT:'ATTACK DETECTED',BLOCK_INSTALLED:'MITIGATION ACTIVE',UNBLOCKED:'RECOVERED',RULES_RELOADED:'RULES RELOADED'})[e] || String(e||'EVENT').replaceAll('_',' ');}
-function renderEvents(events){ const body=$('eventsBody'); body.replaceChildren(); $('eventCount').textContent=`${events.length} recent records · ids_events.jsonl`;
- if(!events.length){const tr=document.createElement('tr');const td=textCell(tr,'No IDS events have been recorded yet. Trigger a controlled lab attack to populate this feed.');td.colSpan=5;td.className='empty';body.appendChild(tr);return;}
- for(const ev of events.slice(0,30)){const tr=document.createElement('tr');textCell(tr,ev.time || fmtTime(ev.ts),'mono');const evtd=document.createElement('td');const b=document.createElement('span');b.className=chipClass(ev.event);b.textContent=eventLabel(ev.event);evtd.appendChild(b);tr.appendChild(evtd);
- const rules=Array.isArray(ev.rules)?ev.rules.join(', '):(ev.rule||'—');const src=[ev.ip||ev.src_ip||'',ev.mac||''].filter(Boolean).join(' · ');const sourceCell=textCell(tr,[rules,src].filter(Boolean).join('\n'),'mono');sourceCell.style.whiteSpace='pre-line';
- const detailCell=document.createElement('td');detailCell.className='event-detail';const title=document.createElement('div');title.textContent=ev.detail||ev.mitigation_action||'—';detailCell.appendChild(title);const meta=document.createElement('div');meta.className='event-meta';const extras=[];if(ev.detect_latency_ms!==undefined)extras.push(`detect ${Number(ev.detect_latency_ms).toFixed(1)} ms`);if(ev.response_ms!==undefined)extras.push(`response ${Number(ev.response_ms).toFixed(2)} ms`);if(ev.total_ms!==undefined)extras.push(`total ${Number(ev.total_ms).toFixed(1)} ms`);if(ev.mitigation_action)extras.push(ev.mitigation_action);if(ev.reason)extras.push(`recovery: ${ev.reason}`);meta.textContent=extras.join(' · ');detailCell.appendChild(meta);tr.appendChild(detailCell);
- const ingress=[ev.in_port!==undefined&&ev.in_port!==null?`port ${ev.in_port}`:'',ev.action_target||''].filter(Boolean).join(' · ');textCell(tr,ingress||'—','mono');body.appendChild(tr);}
+const HOSTS=[
+ {n:"h1",ip:"10.0.0.1", role:"attacker",   kind:"att"},
+ {n:"h2",ip:"10.0.0.2", role:"app server", kind:"srv"},
+ {n:"srv2",ip:"10.0.0.10",role:"file server",kind:"srv"},
+ {n:"srv3",ip:"10.0.0.11",role:"database",  kind:"srv"},
+ {n:"srv4",ip:"10.0.0.12",role:"mail/dns",  kind:"srv"},
+ {n:"h3",ip:"10.0.0.3", role:"heartbeat",  kind:"cli"},
+ {n:"h4",ip:"10.0.0.4", role:"workstation",kind:"cli"},
+ {n:"h5",ip:"10.0.0.5", role:"workstation",kind:"cli"},
+ {n:"h6",ip:"10.0.0.6", role:"workstation",kind:"cli"},
+ {n:"h7",ip:"10.0.0.7", role:"workstation",kind:"cli"},
+ {n:"h8",ip:"10.0.0.8", role:"workstation",kind:"cli"},
+ {n:"h9",ip:"10.0.0.9", role:"workstation",kind:"cli"},
+ {n:"h10",ip:"10.0.0.13",role:"attacker-2", kind:"att"},
+];
+const COL=["#f0504a","#3fb950","#3fb6c2","#4c93f0","#9a7cf0","#d6a426","#e07a5f","#5fd0c0","#c79bf0","#8fd18f","#e0c060","#70a0e0","#d08080"];
+const RLAB={conn_flood:"conn_flood",port_scan:"port_scan",invalid_flags:"invalid_flags",
+  concurrent_flows:"concurrent_flows",packet_rate:"packet_rate",multi_ip_spoof:"multi_ip_spoof",port_flood:"port_flood"};
+const RUNIT={conn_flood:"conns",port_scan:"ports",invalid_flags:"pkts",concurrent_flows:"flows",packet_rate:"pps",multi_ip_spoof:"ips",port_flood:"syns"};
+const PRIO_ROLE={200:"ips: port quarantine",100:"ips: block (ip / mac)",20:"tcp connection (fast path)",5:"new tcp -> ids inspect",1:"l2 forwarding",0:"table-miss -> controller"};
+const BYIP={}; HOSTS.forEach(h=>BYIP[h.ip]=h);
+let hist={};          // ip -> [{t,pps}]  (per-source, live)
+let flowFilter="all";
+let lastFlows=[], portToHost={};
+let rulesCfg={};      // from /api/rules
+let logScale=false, logTab="all";
+const SVC={22:"ssh",80:"http",443:"https",5000:"app",21:"ftp",445:"smb",8080:"http-alt",3306:"mysql",5432:"postgres",25:"smtp",53:"dns",143:"imap"};
+let prevPort=null, prevPortT=0, portRate={};     // switch port counters -> per-host rates
+let prevFlow=null, prevFlowT=0;                  // 5-tuple flow packet counters (for pkts/s + open/close)
+let feed=[], seenEv=new Set(), lastEv=[];        // "all traffic" activity feed
+let connGroups=[], svcGroups=[];
+let qHosts=new Set();   // hosts whose whole switch port is quarantined (spoof / port_flood)
+let dropTrack={}, dropBank=0;   // dropped-by-IPS bookkeeping: per blocked host, plus total from earlier (released) blocks
+function who(ip,b){     // a port quarantine is keyed by the (possibly fake) source IP: show the real host
+  if(b&&b.action_target==="port"){const h=portToHost[b.in_port]; return (h||("port "+b.in_port))+" [src "+ip+"]";}
+  return hn(ip)+" "+ip;
 }
-function renderFlows(flows, error){const body=$('flowsBody');body.replaceChildren();$('flowCount').textContent=error?`Unavailable · ${error}`:`${flows.length} rules parsed from s1`;
- if(!flows.length){const tr=document.createElement('tr');const td=textCell(tr,error||'No active flows were returned. Confirm that s1 is running and OpenFlow 1.3 is enabled.');td.colSpan=6;td.className='empty';body.appendChild(tr);return;}
- for(const f of flows.slice(0,200)){const tr=document.createElement('tr');textCell(tr,String(f.priority),'mono');let kind=f.action_kind==='DROP'?'DROP':f.action_kind==='CONTROLLER'?'CONTROLLER':f.action_kind==='OUTPUT'?'FORWARD':'OTHER';const kd=document.createElement('td');const k=document.createElement('span');k.className='event-type '+(kind==='DROP'?'event-alert':kind==='CONTROLLER'?'event-other':kind==='FORWARD'?'event-block':'');k.textContent=kind;kd.appendChild(k);tr.appendChild(kd);textCell(tr,f.match||'all packets','mono');textCell(tr,f.actions||'DROP (no actions)','mono');textCell(tr,fmtInt(f.packets),'mono');textCell(tr,fmtInt(f.bytes),'mono');body.appendChild(tr);}
+
+function clk(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-GB");}
+setInterval(clk,1000);clk();
+function ci(n){return Number(n||0).toLocaleString("en-US");}
+function fb(b){b=Number(b||0); if(b<1024)return Math.round(b)+" B"; if(b<1048576)return (b/1024).toFixed(1)+" KB"; if(b<1073741824)return (b/1048576).toFixed(1)+" MB"; return (b/1073741824).toFixed(2)+" GB";}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function hn(ip){return BYIP[ip]?BYIP[ip].n:ip;}
+
+document.querySelectorAll(".fbtn[data-f]").forEach(b=>b.addEventListener("click",()=>{
+  flowFilter=b.dataset.f;
+  document.querySelectorAll(".fbtn[data-f]").forEach(x=>x.classList.toggle("on",x===b));
+  flowTable(lastFlows);
+}));
+document.querySelectorAll(".fbtn[data-tab]").forEach(b=>b.addEventListener("click",()=>{
+  logTab=b.dataset.tab;
+  document.querySelectorAll(".fbtn[data-tab]").forEach(x=>x.classList.toggle("on",x===b));
+  drawLog();
+}));
+function setScale(v){
+  logScale=v;
+  document.getElementById("scLin").classList.toggle("on",!v);
+  document.getElementById("scLog").classList.toggle("on",v);
+  chart();
 }
-function drawChart(id, points, field, lineColor, formatter){ const c=$(id); const rect=c.getBoundingClientRect(); const cssW=Math.max(220,rect.width||280), cssH=130, dpr=window.devicePixelRatio||1; c.width=Math.round(cssW*dpr);c.height=Math.round(cssH*dpr);c.style.height=cssH+'px';const ctx=c.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,cssW,cssH);const left=35,right=7,top=8,bottom=22,w=cssW-left-right,h=cssH-top-bottom;
- const values=points.map(p=>Number(p[field])||0);const maxValue=Math.max(1,...values)*1.12;ctx.font='9px system-ui';ctx.textBaseline='middle';
- for(let i=0;i<=3;i++){const y=top+h*i/3;ctx.strokeStyle='#253349';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(cssW-right,y);ctx.stroke();ctx.fillStyle='#8090a8';const val=maxValue*(1-i/3);let label=formatter(val);ctx.fillText(label,1,y);}
- if(values.length<1){ctx.fillStyle='#8090a8';ctx.textAlign='center';ctx.fillText('Waiting for flow statistics…',left+w/2,top+h/2);ctx.textAlign='left';return;}
- const xy=values.map((v,i)=>({x:left+(values.length===1?w/2:i*w/(values.length-1)),y:top+h-(v/maxValue)*h}));ctx.beginPath();xy.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.lineTo(xy[xy.length-1].x,top+h);ctx.lineTo(xy[0].x,top+h);ctx.closePath();ctx.fillStyle=lineColor+'22';ctx.fill();ctx.beginPath();xy.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=lineColor;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();const last=xy[xy.length-1];ctx.beginPath();ctx.arc(last.x,last.y,3,0,Math.PI*2);ctx.fillStyle=lineColor;ctx.fill();
- const idxs=[0,Math.floor((points.length-1)/3),Math.floor(2*(points.length-1)/3),points.length-1].filter((v,i,a)=>a.indexOf(v)===i);ctx.fillStyle='#8090a8';ctx.textBaseline='top';for(const ix of idxs){const label=fmtTime(points[ix].timestamp,'');let x=xy[ix].x;const tw=ctx.measureText(label).width;if(ix===0)x=left;else if(ix===points.length-1)x=Math.max(left,Math.min(cssW-right-tw,x-tw));else x=Math.max(left,Math.min(cssW-right-tw,x-tw/2));ctx.fillText(label,x,top+h+7);}
+document.getElementById("scLin").addEventListener("click",()=>setScale(false));
+document.getElementById("scLog").addEventListener("click",()=>setScale(true));
+
+async function loadRules(){
+  try{ const r=await (await fetch("/api/rules",{cache:"no-store"})).json(); if(r&&r.rules) rulesCfg=r.rules; }catch(e){}
 }
-function renderTelemetry(payload){latestPayload=payload;const status=payload.status||{};const online=Boolean(payload.controller_online);const swOnline=Boolean(payload.switch_online);const series=payload.series||[];const current=series.length?series[series.length-1]:{packets_per_sec:0,bytes_per_sec:0,active_flows:0};const activePorts=payload.quarantined_ports||[];const blocked=payload.controller_online?(status.blocked||{}):{};
- $('controllerMetric').textContent=online?'ONLINE':'OFFLINE';$('controllerMetric').className='metric-value '+(online?'accent-green':'accent-red');$('controllerFoot').textContent=online?`Status age ${Math.max(0,Math.round(payload.status_age_seconds||0))} s`:'No fresh controller status';$('ppsMetric').innerHTML=`${fmtInt(current.packets_per_sec)} <small style="font-size:12px">pps</small>`;$('bpsMetric').textContent=fmtRate(current.bytes_per_sec);$('flowsMetric').textContent=fmtInt(current.active_flows);$('flowsFoot').textContent=`Quarantined ingress ports: ${activePorts.length?activePorts.join(', '):'none detected'}`;
- setState('controllerState',online?'ONLINE':'OFFLINE',online?'ok':'bad');setState('switchConnection',swOnline?'CONNECTED':'DISCONNECTED',swOnline?'ok':'bad');setState('quarantineState',activePorts.length?`ACTIVE · ${activePorts.join(', ')}`:'NONE DETECTED',activePorts.length?'bad':'ok');setState('blockedSources',online?String(Object.keys(blocked).length):'STALE',online&&Object.keys(blocked).length?'warn':online?'ok':'warn');
- $('switchBadge').textContent=swOnline?'s1 · connected':'s1 · disconnected';$('switchState').textContent=swOnline?'CONNECTED':'OFFLINE';$('switchState').className='chip '+(swOnline?'cyan':'red');$('attackerPort').textContent=`Ingress ${payload.port_map?.h1 ?? '—'}`;$('serverPort').textContent=`Port ${payload.port_map?.h2 ?? '—'}`;$('clientPort').textContent=`Port ${payload.port_map?.h3 ?? '—'}`;
- const h1port=payload.port_map?.h1;const quarantineMatch=h1port!==null&&h1port!==undefined&&activePorts.map(Number).includes(Number(h1port));$('attackerState').textContent=quarantineMatch?'QUARANTINED':'ATTACKER ROLE';$('attackerState').className='chip '+(quarantineMatch?'red':'red');$('lineH1').classList.toggle('quarantined',quarantineMatch);$('statusDetails').textContent=payload.ovs_error?`Open vSwitch telemetry: ${payload.ovs_error}`:`Rule reload timestamp: ${fmtTime(status.rules_loaded_at)} · Stats interval: ${status.stats_interval??'—'} s`;
- $('defenseChip').textContent=activePorts.length?'QUARANTINE ACTIVE':'MONITORING';$('defenseChip').className='chip '+(activePorts.length?'red':'green');
- const lastMit=(payload.events||[]).find(e=>e.event==='BLOCK_INSTALLED'||e.event==='UNBLOCKED'||e.event==='ALERT');if(lastMit){const r=Array.isArray(lastMit.rules)?lastMit.rules.join(', '):(lastMit.rule||'IDS event');$('lastMitigationTitle').textContent=`${lastMit.event==='UNBLOCKED'?'Recovered':lastMit.event==='BLOCK_INSTALLED'?'Mitigation confirmed':'Alert'} · ${r}`;$('lastMitigationBody').textContent=[lastMit.ip,lastMit.mac,lastMit.in_port!==undefined&&lastMit.in_port!==null?`ingress port ${lastMit.in_port}`:'',lastMit.mitigation_action||lastMit.detail||'',lastMit.response_ms!==undefined?`switch response ${lastMit.response_ms} ms`:''].filter(Boolean).join(' · ');}else{$('lastMitigationTitle').textContent='Waiting for an IDS event';$('lastMitigationBody').textContent='When a rule fires, its requested action and switch confirmation appear here.';}
- $('updatedAt').textContent=new Date().toLocaleTimeString();$('apiHealth').textContent='API healthy';$('apiHealth').style.color='var(--green)';$('pollLabel').textContent=(POLL_MS/1000).toFixed(1)+' s';$('chartPpsKpi').textContent=fmtInt(current.packets_per_sec)+' pps';$('chartBpsKpi').textContent=fmtRate(current.bytes_per_sec);$('chartFlowsKpi').textContent=fmtInt(current.active_flows);
- drawChart('chartPps',series,'packets_per_sec','#57d7f3',n=>fmtInt(n));drawChart('chartBps',series,'bytes_per_sec','#6ea8fe',n=>n>=1000?fmtRate(n):fmtInt(n));drawChart('chartFlows',series,'active_flows','#50e3a4',n=>fmtInt(n));renderEvents(payload.events||[]);renderFlows(payload.flows||[],payload.ovs_error);
- const errors=[];if(!online)errors.push('No fresh controller status found. Start Ryu and confirm logs/status.json is being updated.');if(payload.ovs_error)errors.push('OpenFlow table unavailable: '+payload.ovs_error);if(payload.telemetry_error)errors.push(payload.telemetry_error);const banner=$('errorBanner');banner.textContent=errors.join(' ');banner.classList.toggle('show',errors.length>0);
+
+async function tick(){
+  let s;
+  try{ s=await (await fetch("/api/telemetry",{cache:"no-store"})).json(); }
+  catch(e){ setDot("dot","ctrlTxt",false,"controller: unreachable"); return; }
+  render(s);
 }
-async function refresh(){if(refreshInFlight)return;refreshInFlight=true;try{const r=await fetch('/api/telemetry',{cache:'no-store'});if(!r.ok)throw new Error(`Telemetry API returned HTTP ${r.status}`);const data=await r.json();renderTelemetry(data);lastRefresh=Date.now();}catch(err){$('apiHealth').textContent='API error';$('apiHealth').style.color='var(--red)';$('errorBanner').textContent='Unable to read telemetry: '+err.message;$('errorBanner').classList.add('show');}finally{refreshInFlight=false;}}
-async function fetchRules(){const status=$('rulesStatus');try{const r=await fetch('/api/rules',{cache:'no-store'});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not read rules');currentRules=data.rules;renderRules(currentRules);status.textContent=`Loaded ${Object.keys(currentRules).filter(k=>currentRules[k]&&typeof currentRules[k]==='object'&&'enabled'in currentRules[k]).length} detection rules from controller/ids_rules.json.`;}catch(err){status.textContent='Rules load failed: '+err.message;}}
-function renderRules(rules){const host=$('ruleList');host.replaceChildren();for(const [name,cfg] of Object.entries(rules||{})){if(!KNOWN_RULE_NAMES.has(name)||!cfg||typeof cfg!=='object')continue;const row=document.createElement('div');row.className='rule-row';const info=document.createElement('div');const n=document.createElement('div');n.className='rule-name';n.textContent=name;n.title=name;info.appendChild(n);const enabled=document.createElement('label');enabled.className='rule-enabled';const cb=document.createElement('input');cb.type='checkbox';cb.checked=Boolean(cfg.enabled);cb.dataset.rule=name;cb.dataset.field='enabled';enabled.append(cb,document.createTextNode('Enabled'));info.appendChild(enabled);row.appendChild(info);
- const threshold=document.createElement('div');threshold.className='rule-field';const tl=document.createElement('label');tl.textContent='Threshold';tl.htmlFor=`rule-${name}-threshold`;const ti=document.createElement('input');ti.type='number';ti.min='1';ti.max='1000000000';ti.step='1';ti.id=`rule-${name}-threshold`;ti.value=cfg.threshold??1;ti.dataset.rule=name;ti.dataset.field='threshold';threshold.append(tl,ti);row.appendChild(threshold);
- const win=document.createElement('div');win.className='rule-field';const wl=document.createElement('label');wl.textContent='Window (s)';wl.htmlFor=`rule-${name}-window`;const wi=document.createElement('input');wi.type='number';wi.min='0.01';wi.max='3600';wi.step='0.1';wi.id=`rule-${name}-window`;wi.value=cfg.window??'';wi.disabled=cfg.window===undefined;wi.dataset.rule=name;wi.dataset.field='window';win.append(wl,wi);row.appendChild(win);host.appendChild(row);}}
-const KNOWN_RULE_NAMES=new Set(['conn_flood','port_scan','invalid_flags','concurrent_flows','packet_rate','multi_ip_spoof','port_flood']);
-async function saveRules(){const btn=$('saveRules');btn.disabled=true;try{const rules=JSON.parse(JSON.stringify(currentRules||{}));document.querySelectorAll('#ruleList [data-rule]').forEach(el=>{const name=el.dataset.rule,field=el.dataset.field;if(!rules[name])return;if(field==='enabled')rules[name].enabled=el.checked;else if(field==='threshold'){const v=Number(el.value);if(!Number.isFinite(v)||v<=0)throw new Error(`${name}: threshold must be greater than zero`);rules[name].threshold=v;}else if(field==='window'&&!el.disabled){const v=Number(el.value);if(!Number.isFinite(v)||v<=0)throw new Error(`${name}: window must be greater than zero`);rules[name].window=v;}});const r=await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Save failed');currentRules=data.rules;renderRules(currentRules);$('rulesStatus').textContent='Saved. Ryu will detect the modified file on its next rules polling cycle.';await refresh();}catch(err){$('rulesStatus').textContent='Save failed: '+err.message;}finally{btn.disabled=false;}}
-async function reloadRules(){const btn=$('reloadRules');btn.disabled=true;try{const r=await fetch('/api/rules/reload',{method:'POST'});const data=await r.json();if(!r.ok)throw new Error(data.error||'Reload request failed');currentRules=data.rules;renderRules(currentRules);$('rulesStatus').textContent='Rules re-read from JSON. The file timestamp was updated; Ryu will re-load it on the next monitoring cycle (check Controller console/status timestamp).';await refresh();}catch(err){$('rulesStatus').textContent='Reload failed: '+err.message;}finally{btn.disabled=false;}}
-$('toggleRules').addEventListener('click',()=>{const hidden=!$('rulesPanel').hidden;$('rulesPanel').hidden=hidden;$('toggleRules').setAttribute('aria-expanded',String(!hidden));$('toggleRules').textContent=hidden?'Show thresholds ▾':'Hide thresholds ▴';if(!hidden&&!currentRules)fetchRules();});
-$('saveRules').addEventListener('click',saveRules);$('reloadRules').addEventListener('click',reloadRules);$('resetRuleForm').addEventListener('click',()=>{renderRules(currentRules||{});$('rulesStatus').textContent='Unsaved edits discarded.';});$('refreshNow').addEventListener('click',refresh);window.addEventListener('resize',()=>{if(latestPayload)renderTelemetry(latestPayload);});
-refresh();setInterval(refresh,POLL_MS);
+function setDot(dotId,txtId,up,txt){
+  const d=document.getElementById(dotId), t=document.getElementById(txtId);
+  d.className="dot "+(up?"on blink":"off");
+  t.textContent=txt; t.style.color=up?"var(--grn)":"var(--red)";
+}
+
+function render(s){
+  const now=s.generated_at||Date.now()/1000;
+  const st=(s.status&&s.status.stats)||{};
+  const blocked=(s.status&&s.status.blocked)||{};
+  const bips=Object.keys(blocked);
+  const cfg=Object.assign({},rulesCfg,s.status||{});
+  const flows=s.flows||[];
+  lastFlows=flows;
+  portToHost={}; Object.entries(s.port_map||{}).forEach(([h,p])=>{if(p!=null)portToHost[p]=h;});
+  qHosts=new Set(); (s.quarantined_ports||[]).forEach(p=>{if(portToHost[p])qHosts.add(portToHost[p]);});
+
+  setDot("dot","ctrlTxt",!!s.controller_online,"controller: "+(s.controller_online?"up":"down"));
+  setDot("swDot","swTxt",!!s.switch_online,"switch s1: "+(s.switch_online?"connected":"down"));
+
+  document.getElementById("upd").textContent=new Date(now*1000).toLocaleTimeString("en-GB");
+  document.getElementById("age").textContent=(s.status_age_seconds!=null)?s.status_age_seconds:"--";
+  document.getElementById("err").textContent=s.telemetry_error||s.ovs_error||"";
+
+  // threat line
+  const th=document.getElementById("threat");
+  if(bips.length){
+    th.classList.add("show");
+    th.innerHTML="! INTRUSION — IPS engaged :: "+bips.map(ip=>{
+      const b=blocked[ip]||{}, r=(b.rules||[b.rule]).filter(Boolean).map(x=>RLAB[x]||x).join(",");
+      return "<b>"+who(ip,b)+"</b> &rarr; "+r+(b.action_target==="port"?" (port "+b.in_port+" quarantined)":"");
+    }).join("   ");
+  } else th.classList.remove("show");
+
+  // ---- true per-host rates from the switch's own port counters ----
+  ratesFrom(s.port_stats||{},now);
+  const portMap=s.port_map||{}, ps=s.port_stats||{};
+  const rate=h=>{const p=portMap[h.n]; return (p!=null&&portRate[p])?portRate[p]:null;};
+  const havePorts=Object.keys(portRate).length>0;
+
+  // ---- flows -> grouped live connections (+ open/close feed) ----
+  const cg=buildConns(flows,now);
+  let dropPk=0, dropRules=0; const dropBySrc={};
+  flows.forEach(f=>{
+    if(f.action_kind!=="DROP")return;
+    dropPk+=f.packets||0; dropRules++;
+    const m=/nw_src=([\d.]+)/.exec(f.match), p=/in_port=(\d+)/.exec(f.match);
+    let ip=null;
+    if(m) ip=m[1]; else if(p&&portToHost[p[1]]){const hh=HOSTS.find(x=>x.n===portToHost[p[1]]); if(hh) ip=hh.ip;}
+    if(ip) dropBySrc[ip]=(dropBySrc[ip]||0)+(f.packets||0);
+  });
+  // The per-rule OVS counter only shows packets that hit the rule while it exists, and it vanishes when the
+  // rule is removed (timeout / sdn-unblock). So also count what the blocked host's own switch port keeps
+  // receiving after the block (every such packet is dropped), and keep the total after the block is released.
+  const blockedHosts=new Set(qHosts);
+  bips.forEach(ip=>{const hh=HOSTS.find(x=>x.ip===ip); if(hh)blockedHosts.add(hh.n);});
+  const _pm=s.port_map||{}, _ps=s.port_stats||{};
+  let dropExtra=0;
+  HOSTS.forEach(h=>{
+    const p=_pm[h.n], rx=(p!=null&&_ps[p])?_ps[p].rx_pkts:null, live=dropBySrc[h.ip]||0;
+    if(blockedHosts.has(h.n)){
+      const tr=dropTrack[h.n]||(dropTrack[h.n]={base:rx,last:0});
+      const est=(rx!=null&&tr.base!=null)?Math.max(0,rx-tr.base):0;
+      tr.last=Math.max(tr.last,est,live);
+      dropExtra+=Math.max(0,tr.last-live);
+      dropBySrc[h.ip]=tr.last;
+    } else if(dropTrack[h.n]){ dropBank+=dropTrack[h.n].last; delete dropTrack[h.n]; }
+  });
+  dropPk+=dropExtra+dropBank;
+
+  // ---- stat strip ----
+  const ev=s.events||[];
+  const nAlert=ev.filter(e=>e.event==="ALERT").length;
+  const ctrlPps=Object.values(st).reduce((a,x)=>a+(x.pps||0),0);
+  const interval=(cfg.stats_interval||3);
+  const ser=s.series||[];
+  let netPps=ctrlPps, netBps=ser.length?ser[ser.length-1].bytes_per_sec:Object.values(st).reduce((a,x)=>a+(x.bytes||0),0)/interval;
+  if(havePorts){netPps=0;netBps=0; HOSTS.forEach(h=>{const r=rate(h); if(r){netPps+=r.sent; netBps+=r.sentB;}});}
+  const kc={OUTPUT:0,DROP:0,CONTROLLER:0,OTHER:0}; flows.forEach(f=>kc[f.action_kind]=(kc[f.action_kind]||0)+1);
+  document.getElementById("sAlerts").textContent=ci(nAlert);
+  document.getElementById("sBlocks").textContent=bips.length;
+  document.getElementById("sBlocksS").textContent=bips.length?bips.map(ip=>{const b=blocked[ip]; return (b&&b.action_target==="port")?(portToHost[b.in_port]||("port "+b.in_port)):hn(ip);}).join(", "):"no drop rules";
+  document.getElementById("sPps").innerHTML=ci(Math.round(netPps))+' <small>pps</small>';
+  document.getElementById("sPpsS").textContent=havePorts?"sum over all 13 switch ports":"from controller polls (waiting for port counters)";
+  document.getElementById("sBps").innerHTML=fb(netBps)+'<small>/s</small>';
+  document.getElementById("sFlows").textContent=ci(cg.total);
+  document.getElementById("sFlowsS").textContent=cg.groups+" client→service pairs";
+  document.getElementById("sDrop").innerHTML=ci(dropPk)+' <small>pkts</small>';
+  document.getElementById("sRulesS").textContent=dropRules+" drop rules · "+flows.length+" rules total · kept after unblock";
+
+  // ---- per-host live history (chart) ----
+  HOSTS.forEach(h=>{
+    const r=rate(h); let v=null;
+    if(r) v=r.sent; else if(st[h.ip]) v=st[h.ip].pps||0;
+    if(v==null) return;
+    const arr=(hist[h.ip]=hist[h.ip]||[]), last=arr[arr.length-1];
+    if(!last||Math.abs(last.t-now)>0.4){arr.push({t:now,pps:v}); if(arr.length>90)arr.shift();}
+  });
+  for(const ip in hist){const h=hist[ip]; if(h.length&&now-h[h.length-1].t>30)delete hist[ip];}
+  chart();
+  minis(ser);
+
+  hostsTable(rate,st,blocked,dropBySrc,ps,portMap,cg.byHost);
+  connsTable(cg,blocked,dropBySrc);
+  svcBars(cg);
+  blocksList(blocked,now,cfg);
+  lastEv=ev; ingestEvents(ev); drawLog();
+  flowTable(flows);
+  rulesLine(cfg);
+}
+
+/* ---- helpers for the full-traffic view ---- */
+function rt(v){v=Number(v||0); if(v<0.05)return '<span class="zero">0</span>'; if(v<10)return v.toFixed(1); return ci(Math.round(v));}
+
+function ratesFrom(ps,now){
+  const snap={}; for(const p in ps) snap[p]=ps[p];
+  if(prevPort && now-prevPortT>0.3){
+    const dt=now-prevPortT, out={};
+    for(const p in snap){
+      const a=snap[p], b=prevPort[p]; if(!b) continue;
+      const d=(x,y)=>Math.max(0,(x||0)-(y||0))/dt;     // counter reset -> 0, never negative
+      out[p]={sent:d(a.rx_pkts,b.rx_pkts), recv:d(a.tx_pkts,b.tx_pkts), sentB:d(a.rx_bytes,b.rx_bytes), recvB:d(a.tx_bytes,b.tx_bytes)};
+    }
+    portRate=out; prevPort=snap; prevPortT=now;
+  } else if(!prevPort){ prevPort=snap; prevPortT=now; }
+}
+
+function kvOf(m){const kv={}; (m||"").split(",").forEach(p=>{p=p.trim(); const i=p.indexOf("="); if(i>0) kv[p.slice(0,i)]=p.slice(i+1);}); return kv;}
+
+function buildConns(flows,now){
+  /* priority-20 rules are the per-connection fast path (one per direction).
+     Normalise each to client -> server:service, merge both directions, then group. */
+  const groups={}, keys={}, flowPk={};
+  const fresh=!prevFlow || now-prevFlowT>0.3;
+  const dt=prevFlow?Math.max(0.3,now-prevFlowT):1;
+  flows.forEach(f=>{
+    if(f.priority!==20||f.action_kind!=="OUTPUT") return;
+    const k=kvOf(f.match); if(!k.nw_src||!k.tp_src||!k.tp_dst) return;
+    const sp=+k.tp_src, dp=+k.tp_dst;
+    const cIsSrc=(SVC[dp]!==undefined)?true:((SVC[sp]!==undefined)?false:(sp>=dp));
+    const c=cIsSrc?k.nw_src:k.nw_dst, cp=cIsSrc?sp:dp, sv=cIsSrc?k.nw_dst:k.nw_src, svp=cIsSrc?dp:sp;
+    const key=c+":"+cp+">"+sv+":"+svp, gid=c+"|"+sv+"|"+svp;
+    const g=groups[gid]||(groups[gid]={c:c,s:sv,svp:svp,conns:0,pk:0,by:0,rate:0,idle:1e9});
+    if(!keys[key]){keys[key]=gid; g.conns++;}
+    g.pk+=f.packets||0; g.by+=f.bytes||0; g.idle=Math.min(g.idle,f.idle||0);
+    flowPk[f.match]=f.packets||0;
+    if(prevFlow){
+      const prev=prevFlow[f.match];
+      const delta=(prev===undefined)?(f.packets||0):Math.max(0,(f.packets||0)-prev);
+      g.rate+=delta/dt;
+    }
+  });
+  if(fresh){
+    if(prevFlow){
+      const pk=prevFlow.__keys||{}, opens={}, closes={};
+      for(const k in keys){ if(!pk[k]) opens[keys[k]]=(opens[keys[k]]||0)+1; }
+      for(const k in pk){ if(!keys[k]) closes[pk[k]]=(closes[pk[k]]||0)+1; }
+      const push=(gid,n,ev)=>{const [c,sv,svp]=gid.split("|");
+        feed.push({ts:now*1000,ev:ev,a:hn(c),b:"→ "+hn(sv)+":"+(SVC[svp]||svp),c:n>1?("×"+n):"",d:ev==="OPEN"?(n+" new tcp connection"+(n>1?"s":"")):(n+" connection"+(n>1?"s":"")+" ended (idle)")});};
+      for(const g in opens) push(g,opens[g],"OPEN");
+      for(const g in closes) push(g,closes[g],"CLOSE");
+    }
+    flowPk.__keys=keys; prevFlow=flowPk; prevFlowT=now;
+  }
+  const list=Object.values(groups).sort((a,b)=>(b.rate-a.rate)||(b.pk-a.pk));
+  const byHost={}, bySvc={}; let total=0;
+  list.forEach(g=>{
+    total+=g.conns; byHost[g.c]=(byHost[g.c]||0)+g.conns; byHost[g.s]=(byHost[g.s]||0)+g.conns;
+    const x=bySvc[g.svp]||(bySvc[g.svp]={svp:g.svp,rate:0,pk:0,conns:0}); x.rate+=g.rate; x.pk+=g.pk; x.conns+=g.conns;
+  });
+  connGroups=list; svcGroups=Object.values(bySvc).sort((a,b)=>(b.rate-a.rate)||(b.pk-a.pk));
+  return {list:list,svc:svcGroups,total:total,groups:list.length,byHost:byHost};
+}
+
+function connsTable(cg,blocked,dropBySrc){
+  const body=document.getElementById("conns"), rows=[];
+  const thr=(rulesCfg.packet_rate&&rulesCfg.packet_rate.threshold)||3000;
+  const blk=new Set(Object.keys(blocked)); Object.keys(dropBySrc).forEach(ip=>blk.add(ip)); HOSTS.forEach(h=>{if(qHosts.has(h.n))blk.add(h.ip);});
+  blk.forEach(ip=>{
+    rows.push(`<tr class="crow-blk"><td>${hn(ip)} <span class="zero">${ip}</span></td><td class="mut">* (everything)</td><td class="sv">any</td>
+      <td class="num">-</td><td class="num">-</td><td class="num">${ci(dropBySrc[ip]||0)} <span class="zero">dropped</span></td><td class="num">-</td><td class="num">-</td>
+      <td><span class="t-state st-blk">BLOCKED</span></td></tr>`);
+  });
+  cg.list.slice(0,60).forEach(g=>{
+    const isB=blk.has(g.c);
+    rows.push(`<tr class="${isB?'crow-blk':''}"><td>${hn(g.c)}</td><td>${hn(g.s)}</td><td class="sv">${g.svp} <span class="zero">${SVC[g.svp]||""}</span></td>
+      <td class="num">${ci(g.conns)}</td><td class="num ${g.rate>thr/3?'hot':''}">${rt(g.rate)}</td><td class="num">${ci(g.pk)}</td><td class="num">${fb(g.by)}</td>
+      <td class="num">${g.idle>=1e9?"-":g.idle+"s"}</td><td><span class="t-state ${isB?'st-blk':'t-ok'}">${isB?"BLOCKED":"ALLOWED"}</span></td></tr>`);
+  });
+  document.getElementById("connNote").textContent=cg.total+" connections · "+cg.groups+" client→service pairs"+(cg.list.length>60?" · top 60 shown":"");
+  body.innerHTML=rows.length?rows.join(""):'<tr><td colspan="9" class="empty">no connections in the flow table yet</td></tr>';
+}
+
+function svcBars(cg){
+  const el=document.getElementById("svcs"), list=cg.svc.slice(0,10);
+  if(!list.length){el.innerHTML='<div class="empty">no traffic yet</div>';return;}
+  const useRate=list.some(x=>x.rate>0.05);
+  const max=Math.max(1,...list.map(x=>useRate?x.rate:x.pk));
+  el.innerHTML=list.map(x=>{
+    const v=useRate?x.rate:x.pk;
+    return `<div class="svc"><span class="nm">${x.svp} <i>${SVC[x.svp]||""}</i></span>
+      <span class="tr"><span style="width:${Math.max(1,Math.round(100*v/max))}%"></span></span>
+      <span class="vl">${useRate?rt(x.rate)+" pps":ci(x.pk)+" pkts"} · ${x.conns}c</span></div>`;
+  }).join("");
+}
+
+function ingestEvents(ev){
+  ev.forEach(e=>{
+    const rl=(e.rules||[e.rule]).filter(Boolean).join(",");
+    const key=[e.ts||e.time||"",e.event||"",e.ip||"",rl,e.detail||""].join("|");
+    if(seenEv.has(key)) return; seenEv.add(key);
+    const ty=e.event||"", lab=ty==="BLOCK_INSTALLED"?"BLOCK":(ty==="UNBLOCKED"?"RECOVER":ty);
+    const ms=(e.response_ms!=null)?e.response_ms+"ms":(e.detect_latency_ms!=null?e.detect_latency_ms+"ms":"");
+    feed.push({ts:e.ts?e.ts*1000:Date.now(),ev:lab,a:e.ip||"-",b:RLAB[rl]||rl||"-",c:ms,d:e.detail||e.mitigation_action||""});
+  });
+  feed.sort((x,y)=>y.ts-x.ts);
+  if(feed.length>400) feed.length=400;
+}
+const FEEDCLS={OPEN:"open",CLOSE:"close",ALERT:"alert",BLOCK:"block",RECOVER:"recov"};
+function drawLog(){
+  if(logTab==="ids"){ eventLog(lastEv); return; }
+  const el=document.getElementById("log");
+  document.getElementById("evCount").textContent=feed.length+" entries";
+  if(!feed.length){el.innerHTML='<div class="empty">waiting for traffic...</div>';return;}
+  el.innerHTML=feed.slice(0,120).map(f=>{
+    const ts=new Date(f.ts).toLocaleTimeString("en-GB");
+    return `<div class="ln" title="${esc(f.d)}"><span class="ts">${ts}</span><span class="ev ev-${FEEDCLS[f.ev]||'alert'}">${f.ev}</span>`+
+      `<span class="ip">${esc(f.a)}</span><span class="rl">${esc(f.b)}</span><span class="ms">${esc(f.c)}</span><span class="dt">${esc(f.d)}</span></div>`;
+  }).join("");
+}
+
+function chart(){
+  const svg=document.getElementById("chart"), lg=document.getElementById("legend");
+  const W=1000,H=180,L=40,R=6,T=8,B=18, pw=W-L-R, ph=H-T-B;
+  const ips=Object.keys(hist).sort((a,b)=>HOSTS.findIndex(h=>h.ip===a)-HOSTS.findIndex(h=>h.ip===b));
+  let max=100; ips.forEach(ip=>hist[ip].forEach(p=>{if(p.pps>max)max=p.pps;}));
+  for(const v of [100,200,500,1000,2000,3000,5000,10000,20000,50000,100000,200000,500000,1000000]){if(v>=max){max=v;break;}}
+  const N=90, xs=pw/(N-1);
+  let o="";
+  /* linear or log10(1+x) vertical scale; log keeps quiet legit hosts visible next to a 100k pps flood */
+  const f=v=>logScale?Math.log10(1+v):v, fm=f(max);
+  for(let i=0;i<=4;i++){const y=T+ph*i/4, fv=fm*(1-i/4), v=Math.round(logScale?Math.pow(10,fv)-1:fv);
+    o+=`<line class="cgrid" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/><text class="clab" x="${L-5}" y="${y+3}" text-anchor="end">${ci(v)}</text>`;}
+  const thr=(rulesCfg.packet_rate&&rulesCfg.packet_rate.threshold)||3000;
+  if(thr<=max){const y=T+ph*(1-f(thr)/fm); o+=`<line class="cthr" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/>`;}
+  o+=`<text class="clab" x="${L}" y="${H-5}">last ${N} polls</text><text class="clab" x="${W-R}" y="${H-5}" text-anchor="end">now</text>`;
+  const items=[];
+  ips.forEach(ip=>{
+    const idx=Math.max(0,HOSTS.findIndex(h=>h.ip===ip)), c=COL[idx%COL.length], h=hist[ip], used=Math.min(h.length,N), sx=L+(N-used)*xs;
+    let pts="";
+    for(let i=0;i<used;i++){const p=h[h.length-used+i];pts+=`${(sx+i*xs).toFixed(1)},${(T+ph*(1-f(p.pps)/fm)).toFixed(1)} `;}
+    const att=BYIP[ip]&&BYIP[ip].kind==="att";
+    o+=`<polyline fill="none" stroke="${c}" stroke-width="${att?2:1.4}" points="${pts}"/>`;
+    const lp=h.length?Math.round(h[h.length-1].pps):0;
+    items.push(`<span class="lg"><span class="sw" style="background:${c}"></span>${hn(ip)} ${ci(lp)}</span>`);
+  });
+  svg.innerHTML=o;
+  lg.innerHTML=items.length?items.join(""):'<span class="lg" style="color:var(--dim)">no traffic yet</span>';
+}
+
+function spark(id,vals,color){
+  const svg=document.getElementById(id), W=300,H=56,T=4,B=4;
+  if(!vals.length){svg.innerHTML=`<text class="clab" x="4" y="30">no samples yet</text>`;return 0;}
+  const max=Math.max(1,...vals), n=vals.length, xs=n>1?W/(n-1):0;
+  let pts="", area=`0,${H-B} `;
+  vals.forEach((v,i)=>{const x=(i*xs).toFixed(1), y=(T+(H-T-B)*(1-v/max)).toFixed(1); pts+=`${x},${y} `; area+=`${x},${y} `;});
+  area+=`${((n-1)*xs).toFixed(1)},${H-B}`;
+  svg.innerHTML=`<line class="cgrid" x1="0" y1="${H-B}" x2="${W}" y2="${H-B}"/>`+
+    `<polygon points="${area}" fill="${color}" opacity=".12"/>`+
+    `<polyline fill="none" stroke="${color}" stroke-width="1.5" points="${pts}"/>`;
+  return max;
+}
+function minis(ser){
+  const p=ser.map(x=>x.packets_per_sec||0), b=ser.map(x=>x.bytes_per_sec||0), f=ser.map(x=>x.active_flows||0);
+  const mp=spark("sparkPps",p,"#3fb6c2"), mb=spark("sparkBps",b,"#9a7cf0"), mf=spark("sparkFl",f,"#3fb950");
+  const last=a=>a.length?a[a.length-1]:0;
+  document.getElementById("mPps").textContent=ci(Math.round(last(p)));
+  document.getElementById("mBps").textContent=fb(last(b))+"/s";
+  document.getElementById("mFl").textContent=ci(Math.round(last(f)));
+  document.getElementById("mPpsMax").textContent=ser.length?"peak "+ci(Math.round(mp)):"";
+  document.getElementById("mBpsMax").textContent=ser.length?"peak "+fb(mb)+"/s":"";
+  document.getElementById("mFlMax").textContent=ser.length?"peak "+ci(Math.round(mf)):"";
+  document.getElementById("seriesNote").textContent=ser.length?(ser.length+" polls from logs/flow_stats.csv"):"waiting for flow_stats.csv";
+}
+
+function hostsTable(rate,st,blocked,dropBySrc,ps,portMap,connsByHost){
+  document.getElementById("hosts").innerHTML=HOSTS.map(h=>{
+    const r=rate(h)||{sent:(st[h.ip]||{}).pps||0,recv:0};
+    const p=portMap[h.n], c=(p!=null&&ps[p])?ps[p]:null;
+    const blk=!!blocked[h.ip]||qHosts.has(h.n), act=(r.sent+r.recv)>0.5||((st[h.ip]||{}).flows||0)>0;
+    let tag,cls;
+    if(blk){tag="BLOCKED";cls="st-blk";}
+    else if(h.kind==="att"){tag=act?"ACTIVE":"attacker";cls="st-att";}
+    else if(h.kind==="srv"){tag=act?"SERVING":"PROT";cls="st-prot";}
+    else if(act){tag="UP";cls="st-up";}
+    else {tag="idle";cls="st-idle";}
+    const dr=dropBySrc[h.ip]||0;
+    return `<tr class="${blk?'hrow-blk':''}">
+      <td>${h.n}</td><td class="mut">${h.ip}</td><td class="mut">${h.role}</td><td class="mut">${p!=null?p:"-"}</td>
+      <td class="num">${rt(r.sent)}</td><td class="num">${rt(r.recv)}</td>
+      <td class="num">${c?ci(c.rx_pkts):"-"}</td><td class="num">${c?ci(c.tx_pkts):"-"}</td>
+      <td class="num">${ci(connsByHost[h.ip]||0)}</td><td class="num ${dr?'vred':''}">${dr?ci(dr):'<span class="zero">0</span>'}</td>
+      <td><span class="t-state ${cls}">${tag}</span></td></tr>`;
+  }).join("");
+}
+
+function fmtMatch(m){
+  if(!m||m==="all packets") return "* (any packet)";
+  const kv={}, flags=[];
+  m.split(",").forEach(p=>{p=p.trim(); if(!p)return; const i=p.indexOf("="); if(i>0) kv[p.slice(0,i)]=p.slice(i+1); else flags.push(p);});
+  const proto=flags.find(f=>["tcp","udp","icmp","arp","ip","ipv6","tcp6","udp6"].includes(f))||"";
+  if(kv.nw_src||kv.nw_dst){
+    const s=kv.nw_src?(hn(kv.nw_src)+(kv.tp_src?":"+kv.tp_src:"")):"*";
+    const d=kv.nw_dst?(hn(kv.nw_dst)+(kv.tp_dst?":"+kv.tp_dst:"")):"*";
+    return `${proto||"ip"}  ${s} → ${d}`;
+  }
+  const parts=[];
+  if(proto) parts.push(proto);
+  if(kv.in_port){const ph=portToHost[kv.in_port]; parts.push("in_port="+kv.in_port+(ph?" ("+ph+")":""));}
+  if(kv.dl_src) parts.push("src_mac="+kv.dl_src);
+  if(kv.dl_dst) parts.push("dst_mac="+kv.dl_dst);
+  return parts.length?parts.join("  "):m;
+}
+function fmtActions(a,kind){
+  if(kind==="DROP") return "drop";
+  return a.replace(/output:(\d+)/gi,(x,p)=>"output:"+p+(portToHost[p]?" ("+portToHost[p]+")":""))
+          .replace(/CONTROLLER:65535/,"CONTROLLER");
+}
+function flowTable(flows){
+  const kc={OUTPUT:0,DROP:0,CONTROLLER:0,OTHER:0}; let pk=0, by=0;
+  flows.forEach(f=>{kc[f.action_kind]=(kc[f.action_kind]||0)+1; pk+=f.packets||0; by+=f.bytes||0;});
+  document.getElementById("cAll").textContent=flows.length;
+  document.getElementById("cFwd").textContent=kc.OUTPUT;
+  document.getElementById("cDrop").textContent=kc.DROP;
+  document.getElementById("cCtrl").textContent=kc.CONTROLLER;
+  document.getElementById("fsum").textContent=ci(pk)+" packets · "+fb(by)+" matched in total";
+  const list=flowFilter==="all"?flows:flows.filter(f=>f.action_kind===flowFilter);
+  const body=document.getElementById("flows");
+  if(!list.length){body.innerHTML=`<tr><td colspan="7" class="empty">${flows.length?"no rules of this type":"flow table not readable (is the switch up?)"}</td></tr>`;return;}
+  const KN={OUTPUT:["FWD","k-fwd"],DROP:["DROP","k-drop"],CONTROLLER:["CTRL","k-ctrl"],OTHER:["OTHER","k-oth"]};
+  body.innerHTML=list.slice(0,400).map(f=>{
+    const [kl,kcls]=KN[f.action_kind]||KN.OTHER;
+    return `<tr class="${f.action_kind==='DROP'?'frow-drop':''}">
+      <td class="num">${f.priority}</td><td class="${kcls}">${kl}</td><td class="role">${PRIO_ROLE[f.priority]||""}</td>
+      <td class="match" title="${esc(f.match)}">${esc(fmtMatch(f.match))}</td>
+      <td class="act" title="${esc(f.actions)}">${esc(fmtActions(f.actions,f.action_kind))}</td>
+      <td class="num">${ci(f.packets)}</td><td class="num">${fb(f.bytes)}</td></tr>`;
+  }).join("")+(list.length>400?`<tr><td colspan="7" class="empty">+${list.length-400} more rules not shown</td></tr>`:"");
+}
+
+function blocksList(blocked,now,cfg){
+  const el=document.getElementById("blocks"), ips=Object.keys(blocked);
+  if(!ips.length){el.innerHTML='<div class="empty">no active blocks — traffic nominal</div>';return;}
+  const idle=(cfg&&cfg.block_idle_timeout)||30;
+  el.innerHTML=ips.map(ip=>{
+    const b=blocked[ip], r=(b.rules||[b.rule]).filter(Boolean).map(x=>RLAB[x]||x).join(","),
+      ttl=Math.max(0,Math.round(idle-(now-(b.since||0)))),
+      act=b.action_target==="port"?("prio-200 in_port="+b.in_port+" drop"):"prio-100 ipv4_src drop";
+    return `<div class="blk"><span class="ttl">idle ttl ~${ttl}s</span><span class="ip">${who(ip,b)}</span>
+      <div class="meta">${r} :: ${act}</div>${b.detail?`<div class="meta">${esc(b.detail)}</div>`:""}</div>`;
+  }).join("");
+}
+
+function eventLog(ev){
+  document.getElementById("evCount").textContent=ev.length+" events";
+  const el=document.getElementById("log");
+  if(!ev.length){el.innerHTML='<div class="empty">waiting for events...</div>';return;}
+  /* backend returns newest-first: show the newest 80 at the top */
+  el.innerHTML=ev.slice(0,80).map(e=>{
+    const ty=e.event||"", kind=ty==="ALERT"?"alert":(ty==="BLOCK_INSTALLED"?"block":(ty==="UNBLOCKED"?"recov":"alert"));
+    const lab=ty==="BLOCK_INSTALLED"?"BLOCK":(ty==="UNBLOCKED"?"RECOVER":ty);
+    const ts=e.time||(e.ts?new Date(e.ts*1000).toLocaleTimeString("en-GB"):"--");
+    const ip=e.ip||"-", rl=(e.rules||[e.rule]).filter(Boolean).map(x=>RLAB[x]||x).join(",");
+    const ms=(e.response_ms!=null)?e.response_ms+"ms":(e.detect_latency_ms!=null?e.detect_latency_ms+"ms":"");
+    const dt=e.detail||e.mitigation_action||"";
+    return `<div class="ln" title="${esc(dt)}"><span class="ts">${ts}</span><span class="ev ev-${kind}">${lab}</span>`+
+      `<span class="ip">${ip}</span><span class="rl">${rl||"-"}</span><span class="ms">${ms}</span><span class="dt">${esc(dt)}</span></div>`;
+  }).join("");
+}
+
+function rulesLine(cfg){
+  const names=["conn_flood","port_scan","invalid_flags","concurrent_flows","packet_rate","multi_ip_spoof","port_flood"];
+  document.getElementById("rules").innerHTML=names.map(n=>{
+    const r=cfg[n]||{}, on=(r.enabled!==false), thr=(r.threshold!=null?r.threshold:"?");
+    const win=r.window!=null?` <i>/ ${r.window}s</i>`:"";
+    return `<span class="ru ${on?'':'off'}">${RLAB[n]}=<b>${thr}</b> <i>${RUNIT[n]}</i>${win}</span>`;
+  }).join("");
+  const prot=(cfg.protected_hosts||[]).length;
+  document.getElementById("rulesNote").textContent=
+    "block idle timeout "+(cfg.block_idle_timeout||30)+"s · stats poll "+(cfg.stats_interval||3)+"s"+(prot?" · "+prot+" whitelisted hosts":"");
+}
+
+loadRules().then(tick); setInterval(tick,1500); setInterval(loadRules,15000);
 </script>
-</body></html>'''
+</body>
+</html>
+'''
+
 
 
 def _read_json(path: Path, fallback: Any = None) -> Any:
@@ -308,14 +912,18 @@ def parse_flows(dump: str) -> list[dict[str, Any]]:
         p_match = re.search(r"(?:^|,)\s*priority=(\d+)", left)
         p_count = re.search(r"(?:^|,)\s*n_packets=(\d+)", left)
         b_count = re.search(r"(?:^|,)\s*n_bytes=(\d+)", left)
+        dur = re.search(r"(?:^|,)\s*duration=([\d.]+)s", left)
+        idle = re.search(r"(?:^|,)\s*idle_age=(\d+)", left)
         if not p_match:
             continue
         match_parts = []
         for part in left.split(","):
             part = part.strip()
-            if not part:
+            # OVS prints flags inline, e.g. "send_flow_rem idle_timeout=30"
+            part = re.sub(r"^((send_flow_rem|check_overlap|reset_counts|no_packet_counts|no_byte_counts)\s+)+", "", part)
+            if not part or part in ("send_flow_rem", "check_overlap", "reset_counts"):
                 continue
-            if re.match(r"^(cookie|duration|table|n_packets|n_bytes|idle_age|hard_age|priority)=", part):
+            if re.match(r"^(cookie|duration|table|n_packets|n_bytes|idle_timeout|hard_timeout|idle_age|hard_age|importance|priority)=", part):
                 continue
             match_parts.append(part)
         actions = actions.strip()
@@ -335,10 +943,40 @@ def parse_flows(dump: str) -> list[dict[str, Any]]:
             "action_kind": kind,
             "packets": int(p_count.group(1)) if p_count else 0,
             "bytes": int(b_count.group(1)) if b_count else 0,
+            "age": float(dur.group(1)) if dur else 0.0,
+            "idle": int(idle.group(1)) if idle else 0,
             "raw": line,
         })
     flows.sort(key=lambda item: (item["priority"], item["packets"]), reverse=True)
     return flows
+
+
+def parse_port_stats(dump: str) -> dict[str, dict[str, int]]:
+    """Parse `ovs-ofctl dump-ports`: true per-port packet/byte counters.
+
+    These come straight from the switch, so they count EVERY packet of every host
+    (allowed, dropped, legit or attacker) - independent of what the IDS tracks.
+    Keys are OpenFlow port numbers (as strings).
+    """
+    def num(v: str) -> int:
+        return int(v) if v.isdigit() else 0
+
+    out: dict[str, dict[str, int]] = {}
+    cur = None
+    for raw in dump.splitlines():
+        m = re.match(r"\s*port\s+(\S+?):\s+rx pkts=(\S+?),\s*bytes=(\S+?),\s*drop=(\S+?),", raw)
+        if m:
+            cur = m.group(1)
+            if cur.isdigit():
+                out[cur] = {"rx_pkts": num(m.group(2)), "rx_bytes": num(m.group(3)), "rx_drop": num(m.group(4)),
+                            "tx_pkts": 0, "tx_bytes": 0, "tx_drop": 0}
+            else:
+                cur = None
+            continue
+        m = re.match(r"\s*tx pkts=(\S+?),\s*bytes=(\S+?),\s*drop=(\S+?),", raw)
+        if m and cur and cur in out:
+            out[cur].update({"tx_pkts": num(m.group(1)), "tx_bytes": num(m.group(2)), "tx_drop": num(m.group(3))})
+    return out
 
 
 def parse_ports(show_output: str) -> dict[str, int]:
@@ -351,17 +989,41 @@ def parse_ports(show_output: str) -> dict[str, int]:
 
 
 def map_host_ports(ports: dict[str, int]) -> dict[str, int | None]:
-    """Map topology roles for this repository's single and distributed modes."""
+    """Map topology roles. The twelve-host single-mode topology adds servers
+    (srv2/srv3/srv4) and extra legit clients (h4-h9) around the original three.
+    OVS numbers the OpenFlow ports in the order the hosts were added in
+    topology/topo.py: h1, then four servers, then seven legit clients.
+    """
     if "vxlan0" in ports:
         return {
             "h1": ports.get("vxlan0"),
             "h2": ports.get("s1-eth1"),
-            "h3": ports.get("s1-eth2"),
+            "srv2": ports.get("s1-eth2"),
+            "srv3": ports.get("s1-eth3"),
+            "srv4": ports.get("s1-eth4"),
+            "h3": ports.get("s1-eth5"),
+            "h4": ports.get("s1-eth6"),
+            "h5": ports.get("s1-eth7"),
+            "h6": ports.get("s1-eth8"),
+            "h7": ports.get("s1-eth9"),
+            "h8": ports.get("s1-eth10"),
+            "h9": ports.get("s1-eth11"),
+            "h10": ports.get("s1-eth12"),
         }
     return {
         "h1": ports.get("s1-eth1"),
         "h2": ports.get("s1-eth2"),
-        "h3": ports.get("s1-eth3"),
+        "srv2": ports.get("s1-eth3"),
+        "srv3": ports.get("s1-eth4"),
+        "srv4": ports.get("s1-eth5"),
+        "h3": ports.get("s1-eth6"),
+        "h4": ports.get("s1-eth7"),
+        "h5": ports.get("s1-eth8"),
+        "h6": ports.get("s1-eth9"),
+        "h7": ports.get("s1-eth10"),
+        "h8": ports.get("s1-eth11"),
+        "h9": ports.get("s1-eth12"),
+        "h10": ports.get("s1-eth13"),
     }
 
 
@@ -394,7 +1056,14 @@ def telemetry_snapshot(switch: str = "s1", ovs_ssh: str | None = None) -> dict[s
     except RuntimeError as exc:
         if not ovs_error:
             ovs_error = str(exc)
+    port_stats_output = ""
+    try:
+        port_stats_output = _run_ovs(["dump-ports", switch], remote_host=ovs_ssh)
+    except RuntimeError as exc:
+        if not ovs_error:
+            ovs_error = str(exc)
     flows = parse_flows(flow_output)
+    port_stats = parse_port_stats(port_stats_output)
     raw_ports = parse_ports(port_output)
     host_ports = map_host_ports(raw_ports)
 
@@ -453,6 +1122,7 @@ def telemetry_snapshot(switch: str = "s1", ovs_ssh: str | None = None) -> dict[s
         "ovs_error": ovs_error,
         "telemetry_error": "; ".join(errors) if errors else None,
         "port_map": host_ports,
+        "port_stats": port_stats,
         "ports": raw_ports,
         "quarantined_ports": sorted(quarantined_ports),
         "recent_attack_ports": recent_attack_ports,

@@ -27,7 +27,11 @@ fi
 if [[ "$ROLE" == "attacker" ]]; then
   sudo apt install -y openvswitch-switch openvswitch-common
   sudo systemctl enable --now openvswitch-switch
-  sudo apt install -y python3-scapy || true      # only needed for the optional --mode xmas/null/fin/syn scans
+  sudo apt install -y python3-scapy || true      # required by atk-spoof and atk-flags
   echo "[OK] attacker tools installed"
+fi
+if [[ "$ROLE" == "all" ]]; then
+  sudo apt install -y python3-scapy || true      # required when using attack shortcuts in single-laptop mode
+  echo "[OK] single-laptop Scapy attack dependencies installed (if package was available)"
 fi
 echo "Done. Next: tools/preflight.sh $ROLE"

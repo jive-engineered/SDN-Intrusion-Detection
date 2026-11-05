@@ -1,0 +1,21 @@
+# Copy to /etc/sdn-ids-cli.conf (or edit it after running install_cli_shortcuts.sh).
+# Laptop A (Controller/Telemetry):
+# SDN_ROLE=controller
+# SDN_SWITCH_SSH=jivesh@192.0.2.20
+#
+# Laptop B (Mininet/OVS):
+# SDN_ROLE=switch
+# SDN_CONTROLLER_SSH=jivesh@192.0.2.10
+# SDN_ATTACKER_SSH=jivesh@192.0.2.30
+# SDN_ATTACKER_IP=192.0.2.30
+#
+# Laptop C (Attacker/SOC browser):
+# SDN_ROLE=attacker
+# SDN_SWITCH_SSH=jivesh@192.0.2.20
+# SDN_CONTROLLER_SSH=jivesh@192.0.2.10
+#
+# Common:
+SDN_REMOTE_SUDO=interactive
+SDN_DASHBOARD_HOST=0.0.0.0
+SDN_DASHBOARD_PORT=8080
+SDN_SWITCH_NAME=s1
