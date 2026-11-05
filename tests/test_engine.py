@@ -94,6 +94,38 @@ class EngineTests(unittest.TestCase):
         for i in range(50):
             self.assertEqual(self.e.observe_tcp(ATT, SRV, 40000 + i, 5000, SYN, now=100 + i * 0.01), [])
 
+    def test_unblock_clears_mac_and_ingress_port_windows_for_requarantine(self):
+        engine = IDSEngine({
+            "multi_ip_spoof": {"enabled": True, "threshold": 2, "window": 4.0},
+            "conn_flood": {"enabled": False},
+            "port_scan": {"enabled": False},
+        })
+        mac, port = "00:00:00:00:00:99", 7
+        alert = None
+        for i in range(3):
+            result = engine.observe_tcp("10.0.0.%d" % (20 + i), SRV, 40000 + i, 5000,
+                                        SYN, in_port=port, mac=mac, now=100 + i * 0.1)
+            if result:
+                alert = result[0]
+        self.assertIsNotNone(alert)
+        self.assertEqual(alert.rule, "multi_ip_spoof")
+        engine.block(alert.ip, alert)
+        self.assertTrue(engine.is_port_blocked(port))
+        engine.unblock(alert.ip, mac=mac, in_port=port)
+        self.assertFalse(engine.is_blocked(alert.ip))
+        self.assertFalse(engine.is_port_blocked(port))
+        self.assertNotIn(mac, engine._mac_ip_events)
+        self.assertNotIn(port, engine._port_events)
+
+        fresh = None
+        for i in range(3):
+            result = engine.observe_tcp("10.0.1.%d" % (20 + i), SRV, 41000 + i, 5000,
+                                        SYN, in_port=port, mac=mac, now=200 + i * 0.1)
+            if result:
+                fresh = result[0]
+        self.assertIsNotNone(fresh, "a fresh attack after unblock must be detected again")
+        self.assertEqual(fresh.rule, "multi_ip_spoof")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

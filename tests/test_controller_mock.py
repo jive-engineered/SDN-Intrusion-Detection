@@ -100,6 +100,71 @@ class ControllerTest(unittest.TestCase):
         events = [json.loads(l)["event"] for l in open(ic.EVENT_LOG)]
         self.assertEqual(events, ["ALERT", "BLOCK_INSTALLED", "UNBLOCKED"])
 
+    def test_source_ip_unblock_then_fresh_flood_is_detected_again(self):
+        self.app.engine.update_rules({
+            "multi_ip_spoof": {"enabled": False},
+            "conn_flood": {"enabled": True, "threshold": 3, "window": 3.0},
+            "port_scan": {"enabled": False},
+            "port_flood": {"enabled": False},
+        })
+        self.app._packet_in(tcp_packet_in(self.dp, "10.0.0.2", "10.0.0.1", 5000, 40000, tcp.TCP_SYN | tcp.TCP_ACK))
+        for offset in range(10):
+            self.app._packet_in(tcp_packet_in(self.dp, "10.0.0.1", "10.0.0.2", 42000 + offset, 5000, tcp.TCP_SYN))
+            if self.app.engine.is_blocked("10.0.0.1"):
+                break
+        self.assertTrue(self.app.engine.is_blocked("10.0.0.1"))
+        self.assertTrue(any(isinstance(m, parser.OFPFlowMod) and m.priority == 100 and
+                            m.command == ofp.OFPFC_ADD and not m.instructions for m in self.dp.sent))
+
+        removed = parser.OFPFlowRemoved(self.dp, cookie=0, priority=100, reason=ofp.OFPRR_DELETE,
+                                        table_id=0, duration_sec=1, duration_nsec=0, idle_timeout=30,
+                                        hard_timeout=0, packet_count=9, byte_count=540,
+                                        match=parser.OFPMatch(eth_type=0x0800, ipv4_src="10.0.0.1"))
+        self.app._flow_removed(Ev(msg=removed))
+        self.assertFalse(self.app.engine.is_blocked("10.0.0.1"))
+
+        start = len(self.dp.sent)
+        for offset in range(10):
+            self.app._packet_in(tcp_packet_in(self.dp, "10.0.0.1", "10.0.0.2", 43000 + offset, 5000, tcp.TCP_SYN))
+            if self.app.engine.is_blocked("10.0.0.1"):
+                break
+        self.assertTrue(self.app.engine.is_blocked("10.0.0.1"), "new attack after unblock must re-quarantine")
+        fresh_drops = [m for m in self.dp.sent[start:] if isinstance(m, parser.OFPFlowMod) and
+                       m.priority == 100 and m.command == ofp.OFPFC_ADD and not m.instructions]
+        self.assertEqual(len(fresh_drops), 1)
+
+    def test_port_quarantine_delete_resets_state_and_allows_requarantine(self):
+        self.app.engine.update_rules({
+            "multi_ip_spoof": {"enabled": False},
+            "conn_flood": {"enabled": False},
+            "port_scan": {"enabled": False},
+            "port_flood": {"enabled": True, "threshold": 3, "window": 3.0},
+        })
+        self.app._packet_in(tcp_packet_in(self.dp, "10.0.0.2", "10.0.0.1", 5000, 40000, tcp.TCP_SYN | tcp.TCP_ACK))
+
+        def send_port_burst(base):
+            for offset in range(5):
+                self.app._packet_in(tcp_packet_in(self.dp, "10.0.0.1", "10.0.0.2", base + offset, 5000, tcp.TCP_SYN))
+                if self.app.engine.is_port_blocked(1):
+                    break
+
+        send_port_burst(44000)
+        self.assertTrue(self.app.engine.is_port_blocked(1))
+        self.assertTrue(any(isinstance(m, parser.OFPFlowMod) and m.priority == 200 and
+                            m.command == ofp.OFPFC_ADD and not m.instructions for m in self.dp.sent))
+        removed = parser.OFPFlowRemoved(self.dp, cookie=0, priority=200, reason=ofp.OFPRR_DELETE,
+                                        table_id=0, duration_sec=1, duration_nsec=0, idle_timeout=30,
+                                        hard_timeout=0, packet_count=8, byte_count=512,
+                                        match=parser.OFPMatch(in_port=1))
+        self.app._flow_removed(Ev(msg=removed))
+        self.assertFalse(self.app.engine.is_port_blocked(1))
+        self.assertFalse(self.app.engine.is_blocked("10.0.0.1"))
+        start = len(self.dp.sent)
+        send_port_burst(45000)
+        self.assertTrue(self.app.engine.is_port_blocked(1), "fresh post-unblock attack must quarantine the ingress port again")
+        self.assertTrue(any(isinstance(m, parser.OFPFlowMod) and m.priority == 200 and
+                            m.command == ofp.OFPFC_ADD and not m.instructions for m in self.dp.sent[start:]))
+
     def test_port_scan_blocked(self):
         self.app._packet_in(tcp_packet_in(self.dp, "10.0.0.2", "10.0.0.1", 22, 40000, tcp.TCP_RST | tcp.TCP_ACK))
         for port in range(1, 30):
