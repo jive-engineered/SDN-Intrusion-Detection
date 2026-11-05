@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 920" font-family="Inter, 'Segoe UI', system-ui, sans-serif">
+  <!-- ================= background ================= -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1324"/>
+      <stop offset="1" stop-color="#060a14"/>
+    </linearGradient>
+    <linearGradient id="ctrlGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#143454"/>
+      <stop offset="1" stop-color="#0e2340"/>
+    </linearGradient>
+    <linearGradient id="dpGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#172238"/>
+      <stop offset="1" stop-color="#0f1626"/>
+    </linearGradient>
+    <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1120"/>
+      <stop offset="1" stop-color="#1a0d18"/>
+    </linearGradient>
+    <linearGradient id="srvGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f2a3d"/>
+      <stop offset="1" stop-color="#0a1a28"/>
+    </linearGradient>
+    <linearGradient id="cliGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f2d26"/>
+      <stop offset="1" stop-color="#0a1b18"/>
+    </linearGradient>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#ff5a7a"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4bdc9f"/>
+    </marker>
+    <marker id="arrC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#58dafe"/>
+    </marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#ffc966"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="920" fill="url(#bgGrad)"/>
+
+  <!-- Title -->
+  <text x="40" y="48" font-size="26" font-weight="800" fill="#e8eef8" letter-spacing="-0.5">SDN IDS + IPS · System Architecture</text>
+  <text x="40" y="74" font-size="13" fill="#58dafe" font-weight="700" letter-spacing="2">RYU · OPENFLOW 1.3 · OPEN VSWITCH · MININET · TWELVE-HOST OFFICE LAN</text>
+  <text x="1360" y="50" text-anchor="end" font-size="12" fill="#8697b4">Figure 1 — control-plane / data-plane separation</text>
+
+  <!-- ================= CONTROL PLANE ================= -->
+  <rect x="40" y="100" width="1320" height="230" rx="16" fill="url(#ctrlGrad)" stroke="#2d4a68" stroke-width="1.5"/>
+  <text x="60" y="128" font-size="11" font-weight="800" fill="#58dafe" letter-spacing="2">CONTROL PLANE  ·  RYU PYTHON APPLICATION</text>
+  <text x="60" y="148" font-size="18" font-weight="700" fill="#e8eef8">Where behaviour is reasoned about and policy is decided</text>
+
+  <!-- IDS engine box -->
+  <rect x="80" y="170" width="540" height="140" rx="12" fill="#0a1626" stroke="#1d4668" stroke-width="1.5"/>
+  <text x="100" y="195" font-size="11" font-weight="800" fill="#58dafe" letter-spacing="1.5">IDS LAYER</text>
+  <text x="100" y="218" font-size="16" font-weight="700" fill="#e8eef8">ids_engine.py — Detection Engine</text>
+  <text x="100" y="240" font-size="11" fill="#8697b4">Classifies observed traffic into 7 behavioural rules:</text>
+  <g font-size="11" fill="#cdd8e8" font-family="ui-monospace, Menlo, monospace">
+    <text x="100" y="260">• conn_flood</text>       <text x="250" y="260">• port_scan</text>       <text x="400" y="260">• invalid_flags</text>
+    <text x="100" y="278">• concurrent_flows</text> <text x="250" y="278">• packet_rate</text>     <text x="400" y="278">• multi_ip_spoof</text>
+    <text x="100" y="296">• port_flood</text>
+  </g>
+
+  <!-- IPS mitigator box -->
+  <rect x="700" y="170" width="620" height="140" rx="12" fill="#0a1626" stroke="#1d4668" stroke-width="1.5"/>
+  <text x="720" y="195" font-size="11" font-weight="800" fill="#4bdc9f" letter-spacing="1.5">IPS LAYER</text>
+  <text x="720" y="218" font-size="16" font-weight="700" fill="#e8eef8">ids_controller.py — Automatic Mitigator</text>
+  <g font-size="11" fill="#cdd8e8">
+    <text x="720" y="240">On every IDS alert, installs an OpenFlow DROP rule in hardware:</text>
+    <text x="720" y="262" font-family="ui-monospace, Menlo, monospace">OFPFlowMod(priority=100, match=ipv4_src, actions=[])  → IP drop</text>
+    <text x="720" y="280" font-family="ui-monospace, Menlo, monospace">OFPFlowMod(priority=200, match=in_port,  actions=[])  → port quarantine</text>
+    <text x="720" y="298">Barrier-verified ACK (≈ 2 ms). Self-heals on idle_timeout via OFPFlowRemoved.</text>
+  </g>
+
+  <!-- IDS -> IPS arrow -->
+  <line x1="620" y1="240" x2="700" y2="240" stroke="#ffc966" stroke-width="2.5" marker-end="url(#arrA)"/>
+  <text x="660" y="232" font-size="10" font-weight="700" fill="#ffc966" text-anchor="middle">alert</text>
+
+  <!-- ================= OPENFLOW CHANNEL ================= -->
+  <line x1="700" y1="330" x2="700" y2="400" stroke="#58dafe" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#arrC)"/>
+  <line x1="700" y1="400" x2="700" y2="330" stroke="#58dafe" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#arrC)"/>
+  <rect x="580" y="348" width="240" height="34" rx="8" fill="#0e2340" stroke="#58dafe"/>
+  <text x="700" y="371" font-size="12" font-weight="800" fill="#58dafe" text-anchor="middle">OpenFlow 1.3 Channel · TCP 6653</text>
+  <text x="840" y="371" font-size="10" fill="#8697b4">Packet-In ↑  FlowMod ↓  FlowStats ↕  FlowRemoved ↑</text>
+
+  <!-- ================= DATA PLANE ================= -->
+  <rect x="40" y="400" width="1320" height="260" rx="16" fill="url(#dpGrad)" stroke="#2a3850" stroke-width="1.5"/>
+  <text x="60" y="428" font-size="11" font-weight="800" fill="#4bdc9f" letter-spacing="2">DATA PLANE  ·  OPEN VSWITCH  s1  (kernel datapath)</text>
+  <text x="60" y="448" font-size="18" font-weight="700" fill="#e8eef8">Where enforcement happens — wire-speed, in hardware/kernel</text>
+
+  <!-- Flow table block -->
+  <rect x="80" y="470" width="1240" height="170" rx="12" fill="#0a1322" stroke="#1f2b43" stroke-width="1.5"/>
+  <text x="100" y="493" font-size="11" font-weight="800" fill="#58dafe" letter-spacing="1.5">FLOW TABLE  (top-down match)</text>
+
+  <g font-family="ui-monospace, Menlo, monospace" font-size="12">
+    <!-- Priority 200 -->
+    <rect x="100" y="505" width="110" height="24" rx="4" fill="#4a1a2a"/>
+    <text x="155" y="522" fill="#ff5a7a" font-weight="800" text-anchor="middle">prio 200</text>
+    <text x="230" y="522" fill="#e8eef8">match: in_port=X</text>
+    <text x="500" y="522" fill="#8697b4">→</text>
+    <text x="530" y="522" fill="#ff5a7a" font-weight="700">DROP</text>
+    <text x="610" y="522" fill="#8697b4" font-size="11">(IPS: ingress-port quarantine — multi-IP spoofers)</text>
+
+    <!-- Priority 100 -->
+    <rect x="100" y="533" width="110" height="24" rx="4" fill="#4a1a2a"/>
+    <text x="155" y="550" fill="#ff5a7a" font-weight="800" text-anchor="middle">prio 100</text>
+    <text x="230" y="550" fill="#e8eef8">match: ipv4_src=A.B.C.D</text>
+    <text x="500" y="550" fill="#8697b4">→</text>
+    <text x="530" y="550" fill="#ff5a7a" font-weight="700">DROP</text>
+    <text x="610" y="550" fill="#8697b4" font-size="11">(IPS: source-IP blackhole — all other rules)</text>
+
+    <!-- Priority 20 -->
+    <rect x="100" y="561" width="110" height="24" rx="4" fill="#1a4a35"/>
+    <text x="155" y="578" fill="#4bdc9f" font-weight="800" text-anchor="middle">prio  20</text>
+    <text x="230" y="578" fill="#e8eef8">match: 5-tuple exact (established)</text>
+    <text x="500" y="578" fill="#8697b4">→</text>
+    <text x="530" y="578" fill="#4bdc9f" font-weight="700">output:port</text>
+    <text x="650" y="578" fill="#8697b4" font-size="11">(FAST PATH — stays in kernel, controller never sees these packets)</text>
+
+    <!-- Priority 5 -->
+    <rect x="100" y="589" width="110" height="24" rx="4" fill="#1a3a55"/>
+    <text x="155" y="606" fill="#58dafe" font-weight="800" text-anchor="middle">prio   5</text>
+    <text x="230" y="606" fill="#e8eef8">match: tcp (initial SYNs)</text>
+    <text x="500" y="606" fill="#8697b4">→</text>
+    <text x="530" y="606" fill="#58dafe" font-weight="700">CONTROLLER</text>
+    <text x="650" y="606" fill="#8697b4" font-size="11">(IDS inspection path — only new conns climb to the controller)</text>
+
+    <!-- Priority 0 -->
+    <rect x="100" y="617" width="110" height="24" rx="4" fill="#2a2a1a"/>
+    <text x="155" y="634" fill="#ffc966" font-weight="800" text-anchor="middle">prio   0</text>
+    <text x="230" y="634" fill="#e8eef8">match: *</text>
+    <text x="500" y="634" fill="#8697b4">→</text>
+    <text x="530" y="634" fill="#ffc966" font-weight="700">CONTROLLER</text>
+    <text x="650" y="634" fill="#8697b4" font-size="11">(table-miss — ARP, L2 learning)</text>
+  </g>
+
+  <!-- ================= HOSTS ================= -->
+  <!-- Attacker (left) -->
+  <rect x="40" y="700" width="200" height="190" rx="14" fill="url(#attGrad)" stroke="#7a2742" stroke-width="2"/>
+  <text x="60" y="724" font-size="10" font-weight="800" fill="#ff5a7a" letter-spacing="1.5">UNTRUSTED EDGE</text>
+  <text x="60" y="754" font-size="22" font-weight="800" fill="#ff5a7a">h1</text>
+  <text x="100" y="754" font-size="16" fill="#f0d5dd">· Attacker</text>
+  <text x="60" y="778" font-size="12" fill="#f0d5dd" font-family="ui-monospace, Menlo, monospace">10.0.0.1</text>
+  <text x="60" y="800" font-size="11" fill="#8697b4">generates test traffic for all</text>
+  <text x="60" y="815" font-size="11" fill="#8697b4">6 attack vectors:</text>
+  <g font-size="10" fill="#cdd8e8">
+    <text x="60" y="833">· port_scan · conn_flood</text>
+    <text x="60" y="848">· invalid_flags · spoof</text>
+    <text x="60" y="863">· concurrent_flows</text>
+    <text x="60" y="878">· packet_rate (volumetric)</text>
+  </g>
+
+  <!-- Servers (middle) -->
+  <rect x="280" y="700" width="520" height="190" rx="14" fill="url(#srvGrad)" stroke="#1d4668" stroke-width="2"/>
+  <text x="300" y="724" font-size="10" font-weight="800" fill="#58dafe" letter-spacing="1.5">PROTECTED SERVERS  ·  WHITELISTED IN ids_rules.json</text>
+
+  <!-- h2 -->
+  <rect x="300" y="740" width="110" height="130" rx="10" fill="#0e1b31" stroke="#1d4668"/>
+  <text x="355" y="762" font-size="18" font-weight="800" fill="#6ea8fe" text-anchor="middle">h2</text>
+  <text x="355" y="782" font-size="11" fill="#8697b4" text-anchor="middle" font-family="ui-monospace, Menlo, monospace">10.0.0.2</text>
+  <text x="355" y="802" font-size="10" fill="#cdd8e8" text-anchor="middle">PRIMARY APP</text>
+  <text x="355" y="822" font-size="10" fill="#8697b4" text-anchor="middle">22  80</text>
+  <text x="355" y="836" font-size="10" fill="#8697b4" text-anchor="middle">443  5000</text>
+
+  <!-- srv2 -->
+  <rect x="420" y="740" width="110" height="130" rx="10" fill="#0e1b31" stroke="#1d4668"/>
+  <text x="475" y="762" font-size="18" font-weight="800" fill="#6ea8fe" text-anchor="middle">srv2</text>
+  <text x="475" y="782" font-size="11" fill="#8697b4" text-anchor="middle" font-family="ui-monospace, Menlo, monospace">10.0.0.10</text>
+  <text x="475" y="802" font-size="10" fill="#cdd8e8" text-anchor="middle">FILE SERVER</text>
+  <text x="475" y="822" font-size="10" fill="#8697b4" text-anchor="middle">21  445</text>
+  <text x="475" y="836" font-size="10" fill="#8697b4" text-anchor="middle">8080</text>
+
+  <!-- srv3 -->
+  <rect x="540" y="740" width="110" height="130" rx="10" fill="#0e1b31" stroke="#1d4668"/>
+  <text x="595" y="762" font-size="18" font-weight="800" fill="#6ea8fe" text-anchor="middle">srv3</text>
+  <text x="595" y="782" font-size="11" fill="#8697b4" text-anchor="middle" font-family="ui-monospace, Menlo, monospace">10.0.0.11</text>
+  <text x="595" y="802" font-size="10" fill="#cdd8e8" text-anchor="middle">DATABASE</text>
+  <text x="595" y="822" font-size="10" fill="#8697b4" text-anchor="middle">3306</text>
+  <text x="595" y="836" font-size="10" fill="#8697b4" text-anchor="middle">5432</text>
+
+  <!-- srv4 -->
+  <rect x="660" y="740" width="120" height="130" rx="10" fill="#0e1b31" stroke="#1d4668"/>
+  <text x="720" y="762" font-size="18" font-weight="800" fill="#6ea8fe" text-anchor="middle">srv4</text>
+  <text x="720" y="782" font-size="11" fill="#8697b4" text-anchor="middle" font-family="ui-monospace, Menlo, monospace">10.0.0.12</text>
+  <text x="720" y="802" font-size="10" fill="#cdd8e8" text-anchor="middle">MAIL / DNS</text>
+  <text x="720" y="822" font-size="10" fill="#8697b4" text-anchor="middle">25  53</text>
+  <text x="720" y="836" font-size="10" fill="#8697b4" text-anchor="middle">143</text>
+
+  <!-- Clients (right) -->
+  <rect x="840" y="700" width="520" height="190" rx="14" fill="url(#cliGrad)" stroke="#1d6a4a" stroke-width="2"/>
+  <text x="860" y="724" font-size="10" font-weight="800" fill="#4bdc9f" letter-spacing="1.5">LEGITIMATE CLIENTS  ·  BACKGROUND OFFICE CHATTER</text>
+
+  <!-- 7 small client boxes -->
+  <g font-family="ui-monospace, Menlo, monospace">
+    <g>
+      <rect x="860" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="893" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h3</text>
+      <text x="893" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.3</text>
+    </g>
+    <g>
+      <rect x="930" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="963" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h4</text>
+      <text x="963" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.4</text>
+    </g>
+    <g>
+      <rect x="1000" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="1033" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h5</text>
+      <text x="1033" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.5</text>
+    </g>
+    <g>
+      <rect x="1070" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="1103" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h6</text>
+      <text x="1103" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.6</text>
+    </g>
+    <g>
+      <rect x="1140" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="1173" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h7</text>
+      <text x="1173" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.7</text>
+    </g>
+    <g>
+      <rect x="1210" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="1243" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h8</text>
+      <text x="1243" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.8</text>
+    </g>
+    <g>
+      <rect x="1280" y="740" width="66" height="55" rx="8" fill="#0a1b18" stroke="#1d6a4a"/>
+      <text x="1313" y="762" font-size="14" font-weight="800" fill="#4bdc9f" text-anchor="middle">h9</text>
+      <text x="1313" y="782" font-size="9" fill="#8697b4" text-anchor="middle">10.0.0.9</text>
+    </g>
+  </g>
+  <text x="1100" y="820" text-anchor="middle" font-size="11" fill="#cdd8e8">7 clients × random server × random port × jittered timing</text>
+  <text x="1100" y="838" text-anchor="middle" font-size="11" fill="#8697b4">≈ 50–100 legit TCP flows/sec continuously during the demo</text>
+  <text x="1100" y="860" text-anchor="middle" font-size="11" font-weight="700" fill="#4bdc9f">(apps/background_traffic.py)</text>
+
+  <!-- ================= Legend ================= -->
+  <g font-size="11">
+    <text x="40" y="906" fill="#8697b4" font-weight="700">
+      <tspan fill="#58dafe">▬▬</tspan> OpenFlow control channel &#160;&#160;&#160;
+      <tspan fill="#4bdc9f">▬▬</tspan> Legit data-path flow (prio-20 fast path) &#160;&#160;&#160;
+      <tspan fill="#ff5a7a">▬▬</tspan> Attack traffic (climbs to controller as prio-5 Packet-In) &#160;&#160;&#160;
+      <tspan fill="#ffc966">▬▬</tspan> IPS mitigation (OFPFlowMod install) &#160;&#160;&#160;
+    </text>
+  </g>
+</svg>
