@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
-ids_controller.py - Ryu SDN IDS Controller with Port & MAC Quarantine (OpenFlow 1.3).
+ids_controller.py - Ryu SDN IDS/IPS Controller (OpenFlow 1.3).
+
+Architecture
+------------
+  * IDS layer : `ids_engine.py` - rule-based detection on observed TCP traffic.
+  * IPS layer : this module     - on every alert, installs a hardware DROP flow
+                                  via OFPFlowMod (Priority-100 IP drop or
+                                  Priority-200 ingress-port quarantine) and
+                                  evicts it automatically on idle_timeout
+                                  (self-healing via OFPFlowRemoved).
 """
 import json
 import os
@@ -296,7 +305,7 @@ class IDSController(app_manager.RyuApp):
             self.engine.unblock_port(in_port)
             for ip, rec in list(self._block_records.items()):
                 if rec.get("action_target") == "port" and rec.get("in_port") == in_port:
-                    self.engine.unblock(ip)
+                    self.engine.unblock(ip, mac=rec.get("mac"), in_port=in_port)
                     self._block_records.pop(ip, None)
                     self._log_event("UNBLOCKED", ip=ip, rules=rec.get("rules", []),
                                     detail=rec.get("detail", ""), reason=why,
@@ -310,8 +319,9 @@ class IDSController(app_manager.RyuApp):
         if msg.priority != PRIO_BLOCK or "ipv4_src" not in msg.match:
             return
         ip = msg.match["ipv4_src"]
-        self.engine.unblock(ip)
         rec = self._block_records.pop(ip, {})
+        self.engine.unblock(ip, mac=rec.get("mac"), in_port=rec.get("in_port"),
+                            release_port=(rec.get("action_target") == "port"))
         self.logger.info("%s[IDS RECOVERY] %s UNBLOCKED (%s)%s", GREEN, ip, why, END)
         self._log_event("UNBLOCKED", ip=ip, rules=rec.get("rules", [rec.get("rule")]),
                         detail=rec.get("detail", ""), reason=why, mac=rec.get("mac"),

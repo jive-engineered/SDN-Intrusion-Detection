@@ -106,13 +106,29 @@ class IDSEngine:
         if alert.action_target == "port" and alert.in_port is not None:
             self.blocked_ports.add(alert.in_port)
 
-    def unblock(self, ip):
+    def unblock(self, ip, mac=None, in_port=None, release_port=True):
+        """Forget a quarantine and reset its detection history for a clean next run.
+
+        The optional MAC and ingress port are important for port-isolation alerts:
+        multiple spoofed source IPs share one source MAC, and ingress-port counters
+        otherwise survive an administrative override and can cause stale detections.
+        For an IP-only flow removal, callers may clear the port's history without
+        releasing a distinct active port quarantine (`release_port=False`).
+        """
         info = self.blocked.pop(ip, None)
         self._state.pop(ip, None)
+        if mac:
+            self._mac_ip_events.pop(mac, None)
+        if in_port is not None:
+            self._port_events.pop(in_port, None)
+            if release_port:
+                self.blocked_ports.discard(in_port)
         return info
 
     def unblock_port(self, in_port):
         self.blocked_ports.discard(in_port)
+        # A manual delete or idle timeout is a new detection epoch for this port.
+        self._port_events.pop(in_port, None)
 
     def observe_tcp(self, src, dst, sport, dport, flags, in_port=None, mac=None, now=None):
         now = time.time() if now is None else now
