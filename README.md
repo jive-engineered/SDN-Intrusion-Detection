@@ -1,4 +1,4 @@
-# 🛡️ SDN-Based Intrusion Detection & Hardware Mitigation System (TCP)
+# SDN-Based Intrusion Detection & Hardware Mitigation System (TCP)
 
 An enterprise-grade intrusion detection and prevention platform built using **Ryu + OpenFlow 1.3 + Open vSwitch (OVS) + Mininet**. 
 
