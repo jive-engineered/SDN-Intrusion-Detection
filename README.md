@@ -1,249 +1,319 @@
-# SDN-Based Intrusion Detection & Hardware Mitigation System (TCP)
+# SDN-Based Intrusion Detection & Prevention System
 
-An enterprise-grade intrusion detection and prevention platform built using **Ryu + OpenFlow 1.3 + Open vSwitch (OVS) + Mininet**. 
+An **IDS + IPS** prototype for a software-defined network, built with **Ryu (OpenFlow 1.3) + Open vSwitch + Mininet**.
+The controller watches every new TCP connection and the switch's own flow counters, detects seven kinds of
+abnormal behaviour, and **blocks the attacker inside the switch** with a DROP rule, while legitimate hosts keep
+working with 0 % packet loss. Detection time and response time are measured and reported.
 
-The system inspects Layer 3/4 headers across transport connections, detects malicious traffic patterns (horizontal port scans, TCP SYN connection floods, and multi-IP source address spoofing), and dynamically deploys **hardware-level OpenFlow quarantine rules (`Priority 200/100 DROP`)** directly into the OVS kernel datapath. Malicious nodes are isolated at line rate with zero control-plane saturation, while legitimate host traffic runs with **0% packet loss**.
+Everything runs on **one Ubuntu 22.04 laptop** (a 13-host virtual office LAN). A three-laptop distributed
+mode is also included (see [Distributed mode](#9-distributed-three-laptop-mode)).
+
+> **Lab use only.** The attack scripts are controlled test-traffic generators for an isolated Mininet network.
+> Never point them at systems you do not own.
 
 ---
 
-## 1. System Architecture & Topology
+## Contents
 
-The entire platform runs locally on a single machine running **Ubuntu 22.04 LTS**. Mininet creates a virtual software-defined network isolated using Linux network namespaces (`netns`), coordinated by a central Ryu SDN controller over an OpenFlow 1.3 control channel (`TCP 6653`).
+1. [What it does](#1-what-it-does)
+2. [The lab network](#2-the-lab-network)
+3. [How detection and prevention work](#3-how-detection-and-prevention-work)
+4. [Quick start (four terminals)](#4-quick-start-four-terminals)
+5. [Terminal 4: the attack menu](#5-terminal-4-the-attack-menu)
+6. [The live telemetry dashboard](#6-the-live-telemetry-dashboard)
+7. [Command-line tools](#7-command-line-tools)
+8. [Automated demo, self-test and unit tests](#8-automated-demo-self-test-and-unit-tests)
+9. [Distributed (three-laptop) mode](#9-distributed-three-laptop-mode)
+10. [Project layout](#10-project-layout)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Documentation](#12-documentation)
+13. [Limitations and ideas](#13-limitations-and-ideas)
 
-```text
-                    +---------------------------------------------+
-                    |        MANAGEMENT & TELEMETRY PLANE         |
-                    |    Telemetry Web Dashboard (Port 8080)      |
-                    +----------------------▲----------------------+
-                                           │ Live Polling / Stats
-                    +----------------------▼----------------------+
-                    |                CONTROL PLANE                |
-                    |             Ryu SDN Controller              |
-                    |  - L2 Learning & Proactive MAC Tracking     |
-                    |  - Sliding-Window Telemetry Engine          |
-                    |  - Reactive Flow-Mod Hardware Mitigation    |
-                    +----------------------▲----------------------+
-                                           │ OpenFlow 1.3 (TCP 6653)
-+------------------------------------------▼------------------------------------------+
-|                         DATA PLANE (Open vSwitch Kernel)                            |
-|                                                                                     |
-|   +-----------------------+     +-----------------------+     +------------------+  |
-|   |   Host 1: Attacker    |     |    Host 2: Server     |     |  Host 3: Client  |  |
-|   |      (10.0.0.1)       |     |      (10.0.0.2)       |     |    (10.0.0.3)    |  |
-|   |  Port Scan / Floods   |     | Target Ports: 22, 80, |     | Benign Traffic   |  |
-|   |  & Multi-IP Spoofing  |     |       443, 5000       |     |  (0% Loss Goal)  |  |
-|   +-----------┬-----------+     +-----------┬-----------+     +--------┬---------+  |
-|               │ (veth1)                     │ (veth2)                  │ (veth3)    |
-|               ▼                             ▼                          ▼            |
-|         [ Switch Port 1 ]             [ Switch Port 2 ]          [ Switch Port 3 ]  |
-|   +-----------------------------------------------------------------------------+   |
-|   |                       Open vSwitch Bridge (s1)                              |   |
-|   +-----------------------------------------------------------------------------+   |
-+-------------------------------------------------------------------------------------+
+---
+
+## 1. What it does
+
+| Part | What it is | Where |
+|---|---|---|
+| **IDS** (detect) | Seven rules over per-source sliding windows and OpenFlow flow statistics | `controller/ids_engine.py` |
+| **IPS** (prevent) | Installs DROP flows in the switch, confirms them with an OpenFlow barrier, removes them automatically when the attacker goes quiet | `controller/ids_controller.py` |
+| **Attack generators** | Six controlled attacks, run from two attacker hosts (`h1`, `h10`) | `apps/attack_*.py`, `t4_attacker.sh` |
+| **Telemetry dashboard** | Live web page: every host, every packet, graphs, blocks, event feed | `tools/telemetry_panel.py` |
+| **CLI suite** | `sdn-flows`, `sdn-unblock`, `test-h1`, `sdn-report`, ... | `tools/sdn_cli.py` |
+| **Report** | Detection / response time table from the event log | `tools/report.py` |
+
+---
+
+## 2. The lab network
+
+One switch `s1` and 13 hosts on `10.0.0.0/24`. Each host sits on its own switch port.
+
+| Host | IP | Role | Switch port |
+|---|---|---|---|
+| `h1` | 10.0.0.1 | **attacker** (primary) | 1 |
+| `h2` | 10.0.0.2 | app server (ports 22, 80, 443, 5000) | 2 |
+| `srv2` | 10.0.0.10 | file server (21, 445, 8080) | 3 |
+| `srv3` | 10.0.0.11 | database (3306, 5432) | 4 |
+| `srv4` | 10.0.0.12 | mail / DNS (25, 53, 143) | 5 |
+| `h3` to `h9` | 10.0.0.3 to 10.0.0.9 | legitimate clients, generate background traffic | 6 to 12 |
+| `h10` | 10.0.0.13 | **attacker** (second) | 13 |
+
+The servers and the seven clients are listed in `protected_hosts` so normal office traffic is never blocked.
+Both attackers stay subject to detection.
+
+---
+
+## 3. How detection and prevention work
+
+### Detection rules (`controller/ids_rules.json`, hot-reloaded, no restart needed)
+
+| Rule | Detects | Default threshold | Data source | Action |
+|---|---|---|---|---|
+| `invalid_flags` | illegal TCP flag combinations (NULL, XMAS, SYN+FIN, ...) | 3 packets in 10 s | Packet-In | block source IP |
+| `port_scan` | many different destination ports from one source | 8 ports in 10 s | Packet-In | block source IP |
+| `conn_flood` | too many new TCP connections | 20 SYN in 3 s | Packet-In | block source IP |
+| `multi_ip_spoof` | one MAC using many source IPs | more than 2 IPs in 4 s | Packet-In | **quarantine the whole port** |
+| `port_flood` | too many Packet-Ins from one switch port | 35 in 3 s | Packet-In | **quarantine the whole port** |
+| `concurrent_flows` | "slow and low": too many simultaneous flows | 40 flows | flow statistics (polled every 3 s) | block source IP |
+| `packet_rate` | volumetric flood: packets per second | 3000 pps | flow statistics (polled every 3 s) | block source IP |
+
+### Flow table on `s1`
+
+| Priority | Match | Action | Installed by |
+|---|---|---|---|
+| **200** | `in_port = N` | **DROP** (port quarantine), idle timeout 30 s | IPS, on `multi_ip_spoof` / `port_flood` |
+| **100** | `ipv4_src = attacker` (or `eth_src` as fallback) | **DROP**, idle timeout 30 s | IPS, on detection |
+| 20 | exact TCP 5-tuple, both directions | forward, idle timeout 10 s | controller, per connection |
+| 5 | any TCP packet | send to controller | at switch connect |
+| 1 | `in_port + eth_dst + eth_src` | forward | learning switch (ARP, ICMP, ...) |
+| 0 | table miss | send to controller | at switch connect |
+
+A **new** connection has a new 5-tuple, so its first packet (SYN) goes to the controller, which counts it and
+installs the priority-20 rules. The rest of that connection is switched in the datapath, so the controller sees
+connection attempts, not every packet. Priorities 100 and 200 beat everything, so a blocked host is dropped
+at the switch edge and can no longer load the controller.
+
+### Prevention and recovery
+
+1. **Alert**: a rule fires and an `ALERT` event is logged with the detection latency.
+2. **Mitigate**: the controller installs the DROP flow(s), then sends an OpenFlow **barrier request**. The barrier
+   reply proves the switch applied the rule, so the logged response time is honest (`BLOCK_INSTALLED`).
+3. **Self-heal**: the DROP flow has an idle timeout of 30 s and `SEND_FLOW_REM`. If the attacker stays silent,
+   the switch removes the rule, sends `OFPFlowRemoved`, and the controller clears its state (`UNBLOCKED`).
+4. **Manual release**: `sdn-unblock` (menu key **8**) deletes the DROP rules immediately.
+
+Priorities 100 and 200 are reserved for IDS blocks in this repository.
+
+---
+
+## 4. Quick start (four terminals)
+
+**Requirements:** Ubuntu 22.04 (Python 3.10), Open vSwitch, Mininet, Ryu in `~/ryu-venv`, scapy.
+First-time install: `./tools/install_ubuntu.sh all`. Then check readiness (no sudo needed): `./selftest.sh`.
+
+> **Start order matters: data plane first, controller second.** Mininet's startup cleanup kills any running
+> `ryu-manager`, so starting the controller first gets it terminated.
+
+Run each command in its **own terminal**, from the project folder (`cd ~/Desktop/sdn-ids`).
+
+| Terminal | Command | You should see |
+|---|---|---|
+| **T1** data plane | `sudo ./t1_dataplane.sh` | the `mininet>` prompt. Leave it open. |
+| **T2** controller | `sudo -E ./t2_controlplane.sh` | `[SWITCH] s1 connected`. Alerts print here live. |
+| **T3** dashboard | `sudo ./t3_telemetry.sh` | open <http://127.0.0.1:8080> in a browser |
+| **T4** attacker | `sudo ./t4_attacker.sh` | the attack menu |
+
+Run T1, T2 and T3 once and leave them open. Only T4 is interactive.
+
+**Clean restart** (if anything gets stuck):
+
+```bash
+sudo pkill -f '[t]opology/topo.py'; sudo pkill -f '[r]yu-manager'; sudo mn -c
 ```
 
-### Topology & Host Roles
-
-| Node | IP Address | MAC Address | Switch Port | Role & Function |
-| :--- | :--- | :--- | :--- | :--- |
-| **`s1`** | N/A | Open vSwitch | Datapath | OpenFlow 1.3 switch executing line-rate forwarding and kernel drops. |
-| **`h1`** | `10.0.0.1` | `00:00:00:00:00:01` | `Port 1` | **Malicious Attacker:** Generates port scans, SYN floods, and multi-IP spoofed packets. |
-| **`h2`** | `10.0.0.2` | `00:00:00:00:00:02` | `Port 2` | **Protected Victim Server:** Hosts active TCP services on ports `22`, `80`, `443`, and `5000`. |
-| **`h3`** | `10.0.0.3` | `00:00:00:00:00:03` | `Port 3` | **Legitimate Client:** Sends continuous background traffic to verify 0% collateral packet loss. |
+then start T1, T2, T3, T4 again in that order.
 
 ---
 
-## 2. OpenFlow Flow-Table Hierarchy
+## 5. Terminal 4: the attack menu
 
-To protect the controller's CPU capacity from table-miss saturation, the switch implements tiered priority matching:
+Every attack key first clears old blocks, runs the attack from the selected attacker, waits for detection to settle,
+then shows the switch's DROP rules, whether the attacker is blocked, and whether the legitimate client `h3` is untouched.
 
-| Priority | Match Criteria | Switch Action | Installed By | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **200** | `in_port = 1` | **`DROP`** | Controller (`FlowMod`) | **Hardware Quarantine:** Drops all incoming frames directly at the physical switch wire. |
-| **100** | `dl_src = 00:00:00:00:00:01` | **`DROP`** | Controller (`FlowMod`) | **L2 Identity Blacklist:** Drops frames matching the attacker's hardware MAC address. |
-| **20** | Exact TCP 5-Tuple Match | `OUTPUT: <port>` | Controller (`FlowMod`) | Fast-path bidirectional line-rate switching (`idle_timeout = 10s`). |
-| **10** | `ipv4_src = 10.0.0.1` | **`DROP`** | Controller (`FlowMod`) | **L3 Network Drop:** Drops packets originating from an offending Layer 3 IP address. |
-| **5** | Layer 4 TCP Traffic | `CONTROLLER` | Default at Boot | Diverts new TCP handshake requests (`SYN`) to the controller for IDS window inspection. |
-| **1** | `eth_dst` + `eth_src` | `OUTPUT: <port>` | Controller (`FlowMod`) | Normal L2 unicast and broadcast learning switch forwarding (ARP, ICMP). |
-| **0** | `*` (Table-Miss) | `CONTROLLER` | Default at Boot | Baseline rule sending unknown flows to the controller via OpenFlow `Packet-In`. |
+| Key | Attack | Rule it should trigger |
+|---|---|---|
+| **1** | Illegal TCP flags (6 malformed packets) | `invalid_flags` |
+| **2** | Port scan, ports 1 to 40 | `port_scan` |
+| **3** | Multi-IP spoof (25 packets, rotating source IPs) | `multi_ip_spoof` (port quarantine) |
+| **4** | SYN connection flood, 80 conn/s for 12 s | `conn_flood` |
+| **5** | Slow-and-low, held-open connections for up to 30 s | `concurrent_flows` |
+| **6** | Volumetric flood, 4 flows at very high packet rate | `packet_rate` |
+| **c** | Coordinated: `h1` connection flood and `h10` volumetric flood at once | two blocks |
+| **7** | Run attacks 1 to 6 in sequence (about 2 to 3 minutes; Ctrl+C returns to the menu) | all |
+| **a** | Toggle the attacker between `h1` and `h10` | |
+| **8** | Clear blocks (`sdn-unblock`) | |
+| **9** | Show the flow table | |
+| **0** | Verify SLA: ping from `h1`, `h10` and the legit client `h3` | |
+| **s** | Make sure servers and background traffic are running | |
+| **r** | Final report (writes `logs/deliverable2_results.csv`) | |
+| **q** | Quit the menu (T1 to T3 keep running) | |
+
+A good demo flow: press **s**, then **6** (watch the dashboard peak and the block), **0** (attacker blocked, `h3` fine),
+**8** (release), **0** (attacker reachable again), then **4**, **3** and **5**.
 
 ---
 
-## 3. Threat Detection Engine & Sliding-Window Rules
+## 6. The live telemetry dashboard
 
-The detection engine maintains in-memory sliding-window queues populated by `OFPPacketIn` metadata: `(timestamp, in_port, dl_src, nw_src, nw_dst, tp_dst)`. Stale timestamps are evicted dynamically on every packet arrival.
+`http://127.0.0.1:8080`, served by `tools/telemetry_panel.py` (Python standard library only, no external assets).
+It refreshes every 1.5 s and reads the switch's own port and flow counters, so it shows **all** traffic, not only blocked traffic.
 
-```text
-[ Inbound Packet ]
-       │
-       ▼
-(Table-Miss / TCP SYN) ──► [ Intercepted by Ryu Controller ]
-                                   │
-                                   ▼
-                   [ Append Metadata to Sliding Window ]
-                                   │
-      ┌────────────────────────────┼────────────────────────────┐
-      ▼                            ▼                            ▼
-[ Target Ports ≥ 8 ]        [ SYNs ≥ 35 ]               [ Unique IPs ≥ 3 ]
-   Window: 10.0s                Window: 3.0s                Window: 4.0s
-      │                            │                            │
-      ▼                            ▼                            ▼
-Rule: `port_scan`           Rule: `port_flood`          Rule: `multi_ip_spoof`
-Action: L3 Drop             Action: Port Quarantine     Action: Dual-Layer Drop
-(Priority 10)               (Priority 200 + 100)        (Priority 200 + 100)
+| Panel | Shows |
+|---|---|
+| Threat banner | the active block, which rule fired, whether a whole port is quarantined |
+| Stat strip | alerts, blocked hosts, network packets/s, throughput, live connections, **dropped by IPS** |
+| Traffic chart | packets/s sent by every host (linear or log), dashed line = `packet_rate` threshold |
+| Hosts table | all 13 nodes: sent/recv rate, packet totals, connections, dropped, state |
+| Live connections | who is talking to whom, per client and service |
+| Traffic by service | packets/s per destination port |
+| Active blocks | each DROP rule, the rule that caused it, idle time left |
+| Activity feed | all traffic, or IDS events only (`ALERT`, `BLOCK`, `RECOVER`) |
+
+"Dropped by IPS" counts the blocked host's packets that the switch discarded. The total is kept after the block is released and
+resets when the page is reloaded or T3 is restarted. After changing `telemetry_panel.py`, restart T3 and hard-refresh the browser (Ctrl+Shift+R).
+
+---
+
+## 7. Command-line tools
+
+Run through `python3 tools/sdn_cli.py <command>`, or install global shortcuts once with `sudo ./tools/install_cli_shortcuts.sh`
+and run `sdn-help`.
+
+| Command | What it does |
+|---|---|
+| `sdn-flows` | Colour-coded flow table. DROP rules are always shown; add `--all` for every rule. |
+| `sdn-unblock` | Delete all IDS DROP rules (priority 100 and 200) so blocked hosts can send again. |
+| `test-h1` | Ping the server from the attacker `h1`. 100 % loss means blocked. |
+| `test-h3` | Ping the server from the legitimate client. Should always be 0 % loss. |
+| `legit-start` | Start servers and background client traffic. |
+| `sdn-report --csv <file>` | Detection / response time table. |
+| `sdn-ui` | Start the dashboard (what T3 runs). |
+
+Attack scripts can also be run directly: `sudo ./run_attacker.sh {scan|flood|concurrent|packet_rate|spoof|invalid_flags|ping}`.
+Set `SDN_ATTACKER=h10` to launch from the second attacker.
+The full command reference is in [`DELIVERABLE2_CLI_RUNBOOK.md`](DELIVERABLE2_CLI_RUNBOOK.md).
+
+---
+
+## 8. Automated demo, self-test and unit tests
+
+```bash
+./selftest.sh                       # readiness check, prints READY / NOT READY
+sudo ./auto_demo.sh                 # hands-free: every attack, flow-table proof, SLA proof, final report
+sudo ./auto_demo.sh --no-launch     # assume T1 and T2 are already running
+sudo ./diag.sh                      # one-shot diagnosis if an attack is not detected or blocked
 ```
 
-### Detection Logic & Mitigations
+Unit tests (no Mininet or OVS needed):
 
-1. **Horizontal Port Scan (`rule=port_scan`)**
-   * **Trigger:** `≥ 8` distinct destination TCP ports (`tp_dst`) targeted from the same sender IP (`nw_src`) within a **10.0s** sliding window.
-   * **Mitigation:** Pushes OpenFlow `priority=10, ip, nw_src=10.0.0.1, actions=drop`.
-   * **Performance:** Detection latency `~372 ms` | Controller response `4.87 ms` | Total mitigation `~377 ms`.
-
-2. **TCP SYN Connection Flood (`rule=port_flood`)**
-   * **Trigger:** `≥ 35` TCP connection requests (`SYN=1, ACK=0`) entering via a single switch port within a **3.0s** sliding window.
-   * **Mitigation:** Enforces immediate physical port and MAC suppression:
-     * `priority=200, in_port=1, actions=drop`
-     * `priority=100, dl_src=00:00:00:00:00:01, actions=drop`
-   * **Performance:** Detection latency `~137 ms` | Controller response `4.47 ms` | Total mitigation `~141 ms`. Halts `Packet-In` generation to prevent controller CPU starvation.
-
-3. **Multi-IP Spoofing Flood (`rule=multi_ip_spoof`)**
-   * **Trigger:** Packets originating from the same physical switch port (`in_port=1`) or source MAC (`dl_src`) claim `≥ 3` distinct source IP addresses (`nw_src`) within a **4.0s** sliding window.
-   * **Defense Advantage:** Traditional firewalls suffer state-table exhaustion trying to blacklist thousands of rotating spoofed IPs. This architecture binds detection to Layer 1/2 hardware properties, shutting down the ingress port regardless of forged Layer 3 headers.
-   * **Mitigation:** Deploys dual-layer hardware isolation (`Priority 200 in_port=1` + `Priority 100 dl_src`).
-   * **Performance:** Detection latency `~203 ms` | Controller response `5.27 ms` | Total mitigation `~209 ms`.
-
-4. **Self-Healing & Auto-Recovery (`idle_timeout`)**
-   * All mitigation drop rules are programmed with an ephemeral `idle_timeout` (`10–15s`).
-   * Once the attacker stops sending malicious traffic, OVS flow counters register zero matches for the timeout duration and automatically evict the drop rule.
-   * Ryu receives the `OFPFlowRemoved` event, clears the penalty state, logs `[IDS RECOVERY] UNBLOCKED`, and restores normal L2 connectivity without manual intervention.
+```bash
+python3 -m unittest tests.test_engine tests.test_telemetry_panel tests.test_cli_suite -v
+# controller tests need Ryu, so run them inside the venv:
+source ~/ryu-venv/bin/activate && python3 -m unittest tests.test_controller_mock -v
+```
 
 ---
 
-## 4. Repository Structure
+## 9. Distributed (three-laptop) mode
 
-```text
+The same code runs across three laptops: **A** (Ryu controller), **B** (switch + servers), **C** (attacker, tunnelled into `s1` over VXLAN).
+
+```bash
+./run_controller.sh                                   # Laptop A
+sudo ./run_switch.sh <A_IP> <C_IP>                    # Laptop B
+sudo ./topology/attacker_node.sh up <B_IP>            # Laptop C
+sudo ./run_attacker.sh ping                           # Laptop C: must reply from 10.0.0.2
+```
+
+Start A, then B, then C. Ports and firewall: TCP 6653 open on A, UDP 4789 open on B and C. Configuration, SSH options and the SOC workflow
+are in [`DELIVERABLE2_CLI_RUNBOOK.md`](DELIVERABLE2_CLI_RUNBOOK.md); the telemetry options are in [`TELEMETRY_RUNBOOK.md`](TELEMETRY_RUNBOOK.md).
+
+---
+
+## 10. Project layout
+
+```
 sdn-ids/
-├── apps/
-│   ├── attack_conn_flood.py       # High-rate TCP SYN connection flood generator
-│   ├── attack_port_scan.py        # Controlled port scanner (Connect, SYN, FIN, NULL, XMAS)
-│   ├── attack_spoof_flood.py      # Scapy raw multi-IP spoofing flood script
-│   ├── tcp_client.py              # Legitimate client traffic generator (RTT & loss tracker)
-│   └── tcp_server.py              # Multi-port victim TCP server (ports 22, 80, 443, 5000)
+├── README.md
+├── t1_dataplane.sh          T1  switch + 13-host network (Mininet)
+├── t2_controlplane.sh       T2  Ryu IDS/IPS controller
+├── t3_telemetry.sh          T3  web dashboard
+├── t4_attacker.sh           T4  attack menu
+├── run_switch.sh · run_controller.sh · run_attacker.sh    building blocks used by the scripts above
+├── auto_demo.sh             hands-free demo
+├── selftest.sh · diag.sh    readiness check · one-shot diagnosis
 ├── controller/
-│   ├── ids_controller.py          # Ryu OpenFlow 1.3 app: L2 switch, stats poller, FlowMod governor
-│   ├── ids_engine.py              # Pure-Python sliding-window detection engine
-│   ├── ids_rules.json             # Hot-reloaded detection thresholds and timeouts
-│   └── ids_rules_team.json        # Alternative threshold profile
-├── tools/
-│   ├── telemetry_panel.py         # Real-time web telemetry dashboard ([http://127.0.0.1:8080](http://127.0.0.1:8080))
-│   ├── panel.py                   # CLI status monitor
-│   ├── report.py                  # Latency & mitigation benchmark report generator
-│   ├── mininet_host_exec.sh       # Namespace command execution helper
-│   ├── preflight.sh               # Environment & port readiness verifier
-│   └── install_ubuntu.sh          # Automated package & virtualenv installer
+│   ├── ids_controller.py    Ryu app: learning switch, flow stats, IPS reaction, barrier-verified mitigation
+│   ├── ids_engine.py        detection engine (pure Python, unit-tested)
+│   ├── ids_rules.json       thresholds and protected hosts (hot-reloaded)
+│   └── ids_rules_team.json  alternative rules for the legacy team scripts
 ├── topology/
-│   ├── topo.py                    # Mininet 3-host (h1, h2, h3) + OVS switch (s1) topology
-│   └── attacker_node.sh           # Attacker namespace configuration utility
-├── tests/
-│   ├── test_engine.py             # Unit tests for sliding-window rules
-│   ├── test_controller_mock.py    # Mock tests for OpenFlow controller reactions
-│   └── test_telemetry_panel.py    # Telemetry dashboard unit tests
-├── CONTROLLER_LOGGING_AUDIT.patch # Controller telemetry logging patch
-├── TELEMETRY_RUNBOOK.md           # Detailed operational runbook for live demonstrations
-├── run_controller.sh              # Activates ryu-venv and launches Ryu controller
-├── run_switch.sh                  # Boots Mininet topology and connects OVS to 127.0.0.1
-├── run_attacker.sh                # Executes scan, flood, and spoof attacks inside h1 namespace
-├── upgrade_sdn.sh                 # Environment upgrade utility
-└── README.md                      # Project documentation
+│   ├── topo.py              Mininet topology (single and distributed modes)
+│   └── attacker_node.sh     Laptop C: OVS bridge + VXLAN + attacker namespace
+├── apps/                    traffic generators and servers
+│   ├── tcp_server.py · tcp_client.py · background_traffic.py
+│   └── attack_port_scan.py · attack_conn_flood.py · attack_invalid_flags.py
+│       attack_spoof_flood.py · attack_packet_rate.py
+├── tools/
+│   ├── sdn_cli.py           the sdn-* / atk-* command suite
+│   ├── telemetry_panel.py   live dashboard (panel.py is the older, simpler panel)
+│   ├── mininet_host_exec.sh run a command inside a Mininet host
+│   ├── report.py · plot_results.py · preflight.sh
+│   └── install_ubuntu.sh · install_cli_shortcuts.sh · sdn-cli.conf.example
+├── tests/                   test_engine, test_telemetry_panel, test_cli_suite, test_controller_mock
+├── docs/                    guides (PDF), architecture diagram, sample results
+├── logs/                    runtime output: ids_events.jsonl, flow_stats.csv, status.json (not committed)
+└── team_files_fixed/        legacy scripts from an earlier team layout (kept for reference)
 ```
 
 ---
 
-## 5. Quick Start & 4-Terminal Execution Guide
+## 11. Troubleshooting
 
-The entire system is designed to run smoothly on **one Ubuntu 22.04 LTS laptop** using 4 terminal windows.
-
-### Initial Installation (Run Once)
-```bash
-cd ~/Desktop/sdn-ids
-./tools/install_ubuntu.sh all
-```
-
-### Terminal 1: Data Plane (Mininet & Open vSwitch)
-Launch the 3-host virtual network connected to local controller `127.0.0.1`:
-```bash
-cd ~/Desktop/sdn-ids
-sudo ./run_switch.sh 127.0.0.1
-```
-Verify initial connectivity inside the `mininet>` prompt:
-```text
-mininet> pingall
-*** Results: 0% dropped (6/6 received)
-```
-
-### Terminal 2: Control Plane (Ryu SDN Controller)
-Activate the Python 3.10 virtual environment and start the IDS controller:
-```bash
-cd ~/Desktop/sdn-ids
-source ~/ryu-venv/bin/activate
-./run_controller.sh
-```
-Wait for `[SWITCH] s1 connected` to appear in the console.
-
-### Terminal 3: Live Telemetry Web Dashboard
-Start the real-time web UI server:
-```bash
-cd ~/Desktop/sdn-ids
-sudo -E python3 tools/telemetry_panel.py
-```
-Open **`http://127.0.0.1:8080`** in your browser to monitor live packet rates, active OpenFlow rules, alert timelines, and quarantined hosts.
-
-### Terminal 4: Attacker Console (`h1` Namespace)
-Run controlled cyber-attacks from host `h1` (`10.0.0.1`) against the server `h2` (`10.0.0.2`):
-
-* **1. Horizontal Port Scan:**
-  ```bash
-  sudo ./run_attacker.sh scan
-  ```
-  *Result:* Controller triggers `rule=port_scan` in `~372 ms` and installs a `Priority 10` L3 drop rule.
-
-* **2. TCP SYN / Port Flood:**
-  ```bash
-  sudo ./run_attacker.sh flood
-  ```
-  *Result:* Controller triggers `rule=port_flood` in `~137 ms` and quarantines physical Switch Port 1 (`Priority 200`).
-
-* **3. Multi-IP Spoofing Flood:**
-  ```bash
-  sudo ./run_attacker.sh spoof
-  ```
-  *Result:* Controller detects rotating fake IPs from the same MAC/Port in `~203 ms` and locks down Port 1 (`Priority 200` + `Priority 100`).
-
-### Verify Zero Collateral Damage & Self-Healing
-1. **During an active block:** Run `pingall` in **Terminal 1**. Host `h1` is completely blocked, while benign hosts `h2 <-> h3` communicate with **0% packet loss**.
-2. **After stopping the attack:** Wait `10–15 seconds` for the `idle_timeout` to expire. Terminal 2 logs `[IDS RECOVERY] UNBLOCKED`, and `pingall` returns to `0% dropped (6/6 received)`.
+| Symptom | Cause and fix |
+|---|---|
+| `ovs-ofctl: s1 is not a bridge or a socket` | The network is not running. Start T1 first (`sudo ./t1_dataplane.sh`). |
+| `Found multiple Mininet shells for hN` | Two topologies are running, or an old copy of the host-exec script is in use. Do a [clean restart](#4-quick-start-four-terminals). Make sure `tools/mininet_host_exec.sh` is the current version (it matches host names exactly, so `h1` does not match `h10`). |
+| Controller gets terminated right after starting | The controller was started before T1. Start T1, wait for `mininet>`, then start T2. |
+| An attack is not detected or blocked | Run `sudo ./diag.sh` and read it top to bottom. Check that T2 shows `[SWITCH] s1 connected`. |
+| Attacker looks blocked when you did not expect it | A block from an earlier attack is still active (30 s idle timeout). Press **8**, then **0**. |
+| `sdn-unblock` prints `unknown keyword priority` | Old `sdn_cli.py`. The current version deletes each DROP rule with `ovs-ofctl --strict`. |
+| Dashboard shows old behaviour after an update | Restart T3 and hard-refresh the browser (Ctrl+Shift+R). |
+| Dashboard port 8080 already in use | Another dashboard is running. Stop it, or use `python3 tools/telemetry_panel.py --port 8081`. |
+| `ryu-manager: command not found` | Run through `run_controller.sh` / `t2_controlplane.sh` (they activate `~/ryu-venv`), or `./tools/install_ubuntu.sh controller`. |
+| `ImportError` for `eventlet` / `imp` | Python is too new. Use Ubuntu 22.04 and `pip install eventlet==0.30.2` inside `~/ryu-venv`. |
+| `RTNETLINK answers: File exists`, stale Mininet | `sudo mn -c`, then start again. |
 
 ---
 
-## 6. Performance Benchmarks
+## 12. Documentation
 
-Measured via OpenFlow barrier-verified timestamps (`python3 tools/report.py`):
-
-| Attack Vector | Rule Triggered | Sliding Window | Detection Latency | Controller Reaction | Total Mitigation Time | Benign Traffic Loss |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Port Scan** | `port_scan` | `≥ 8 ports / 10.0s` | `372.4 ms` | `4.87 ms` | **`377.3 ms`** | `0.0%` |
-| **TCP SYN Flood** | `port_flood` | `≥ 35 SYNs / 3.0s` | `136.8 ms` | `4.47 ms` | **`141.3 ms`** | `0.0%` |
-| **Multi-IP Spoofing** | `multi_ip_spoof` | `≥ 3 IPs / 4.0s` | `203.1 ms` | `5.27 ms` | **`208.4 ms`** | `0.0%` |
+| File | Contents |
+|---|---|
+| [`DEMO_PLAYBOOK.md`](DEMO_PLAYBOOK.md) | Step-by-step demo script and talking points |
+| [`DELIVERABLE2_CLI_RUNBOOK.md`](DELIVERABLE2_CLI_RUNBOOK.md) | CLI suite, three-laptop configuration, SOC unblock workflow, report |
+| [`TELEMETRY_RUNBOOK.md`](TELEMETRY_RUNBOOK.md) | Dashboard operation, distributed OVS-over-SSH option, troubleshooting |
+| [`docs/SDN_IDS_IPS_Concepts_and_Guide.pdf`](docs/SDN_IDS_IPS_Concepts_and_Guide.pdf) | Concepts, IDS/IPS logic start to end, each dashboard panel explained, one-page command guide |
+| [`docs/SDN_IDS_IPS_Dashboard_Changes_per_Attack.pdf`](docs/SDN_IDS_IPS_Dashboard_Changes_per_Attack.pdf) | What changes on the dashboard for each attack key |
+| [`CONTROLLER_LOGGING_AUDIT.patch`](CONTROLLER_LOGGING_AUDIT.patch) | Logging audit patch (reference) |
 
 ---
 
-## 7. Troubleshooting
+## 13. Limitations and ideas
 
-| Issue / Symptom | Quick Fix |
-| :--- | :--- |
-| `Switch NOT connected` in Mininet | Ensure Terminal 2 (`./run_controller.sh`) is running and listening on port `6653` (`ss -ltn \| grep 6653`). |
-| `RTNETLINK answers: File exists` | Clean up stale Mininet namespaces and virtual interfaces with `sudo mn -c`, then re-run `sudo ./run_switch.sh 127.0.0.1`. |
-| `ryu-manager: command not found` | Activate the virtual environment first: `source ~/ryu-venv/bin/activate`. |
-| `ImportError: ALREADY_HANDLED` | Ensure `eventlet==0.30.2` is installed inside `~/ryu-venv` on Python 3.10 (Ubuntu 22.04). |
-| Attacker still blocked before next test | Wait `15s` for the `idle_timeout` to auto-expire, or restart `./run_controller.sh` to flush switch flow tables. |
+* The controller is a single point of failure. Existing flows keep working if it stops, but new connections and new detection do not.
+* Blocking by source IP or port can be bypassed by an attacker who spoofs addresses, which is why `multi_ip_spoof` and `port_flood`
+  quarantine the whole port instead.
+* Only TCP is inspected. The same pattern extends to UDP and ICMP (for example an ICMP flood rule).
+* Possible extensions: OpenFlow meters for a rate-limit stage before blocking, threshold tuning per host role,
+  per-rule metrics export.
